@@ -13,9 +13,9 @@
 > **Zakres:** pliki lokalne oraz — na jawne żądanie użytkownika — serwery SFTP, FTP, FTPS i WebDAV (zob. [Połączenia sieciowe](#połączenia-sieciowe)). Aplikacja niczego nie wysyła „do domu” i nie zbiera żadnych danych; łączy się wyłącznie z serwerami, które sam dodasz.
 
 ## Status
-Wczesna wersja **0.1**. Logika plikowa jest pokryta testami automatycznymi (SwiftPM, wyłącznie na katalogach tymczasowych), ale **interfejs jest sprawdzany ręcznie** — lista rzeczy do przeklikania jest w [MANUAL_TESTS.md](../MANUAL_TESTS.md). Spodziewaj się błędów; zgłaszaj je przez Issues. Interfejs jest po polsku (bez systemu lokalizacji).
+Wczesna wersja **0.1**. Logika plikowa jest pokryta testami automatycznymi (SwiftPM, wyłącznie na katalogach tymczasowych), ale **interfejs jest sprawdzany ręcznie** — lista rzeczy do przeklikania jest w [MANUAL_TESTS.md](pl/MANUAL_TESTS.md). Spodziewaj się błędów; zgłaszaj je przez Issues. Interfejs jest po polsku (bez systemu lokalizacji).
 
-Aplikacja **nie jest notaryzowana** ani podpisana certyfikatem dewelopera — zbuduj ją ze źródeł (poniżej). Działa bez sandboxa i bez Full Disk Access (uzasadnienie: [ARCHITECTURE.md](../ARCHITECTURE.md)).
+Aplikacja **nie jest notaryzowana** ani podpisana certyfikatem dewelopera — zbuduj ją ze źródeł (poniżej). Działa bez sandboxa i bez Full Disk Access (uzasadnienie: [ARCHITECTURE.md](pl/ARCHITECTURE.md)).
 
 ## Funkcje
 **Przeglądanie**
@@ -70,7 +70,7 @@ Co to oznacza w praktyce:
 
 ### Ograniczenia połączeń
 - Transfery nie są wznawiane; SFTP przesyła dane sekwencyjnie po 32 KiB, więc przy dużym opóźnieniu jest wolniejszy niż klient OpenSSH.
-- SFTP: biblioteka Citadel czyta klucze Ed25519 i RSA w formacie OpenSSH (nie ECDSA, nie starszy format PEM); korzysta z forka `swift-nio-ssh` (zob. [ARCHITECTURE.md](../ARCHITECTURE.md)).
+- SFTP: biblioteka Citadel czyta klucze Ed25519 i RSA w formacie OpenSSH (nie ECDSA, nie starszy format PEM); korzysta z forka `swift-nio-ssh` (zob. [ARCHITECTURE.md](pl/ARCHITECTURE.md)).
 - FTP: bez MLSD czasy z `LIST` są przybliżone (brak roku w starszych wpisach), a nietypowe formaty list są pomijane i liczone, nie zgadywane. Jedno połączenie, operacje szeregowo. Kodowanie nazw: UTF-8.
 - WebDAV: bez blokad (LOCK) i PROPPATCH; przy Digest treść PUT może zostać wysłana dwukrotnie (po wyzwaniu serwera). Plików ze zdalnego panelu nie otwiera się bezpośrednio — skopiuj je na dysk.
 - Pliki zdalne nie mają Quick Look, „Pokaż w Finderze” ani ulubionych; zbiorcza zmiana nazw, porównanie i duplikaty działają tylko lokalnie.
@@ -80,7 +80,7 @@ Co to oznacza w praktyce:
 
 ### Testy z serwerami (bezpiecznie)
 Testy automatyczne łączą się **wyłącznie z serwerami uruchamianymi w procesie testowym na 127.0.0.1** (katalogi tymczasowe, certyfikaty generowane na czas testu) — nigdy z serwerami publicznymi ani Twoimi. `swift test` pokrywa: SFTP (hasło, nieznany/zmieniony klucz hosta, zerwanie, anulowanie, Unicode), WebDAV (odpowiedzi 207, przestrzenie nazw, prefiks ścieżki, przekierowania, uwierzytelnianie, nieprawidłowy certyfikat), FTP (MLSD/LIST, tryb pasywny, zerwanie) i FTPS jawny/niejawny (weryfikacja certyfikatu i hosta, brak obniżania). Testy FTPS jawnego używają `python3` i `openssl` z systemu (pomijane, gdy ich brak).
-Do ręcznego sprawdzenia interfejsu możesz uruchomić lokalny serwer SFTP testowy: `OC_SERVE_SECONDS=300 swift test --filter SFTPIntegrationTests/testServeForManualUI` (nasłuch `127.0.0.1:2222`, użytkownik `ola`, hasło z `TestSFTPServer`), a w aplikacji — **kopii z innym identyfikatorem pakietu** (zob. [CLAUDE.md](../CLAUDE.md)) — dodać profil SFTP na ten adres.
+Do ręcznego sprawdzenia interfejsu możesz uruchomić lokalny serwer SFTP testowy: `OC_SERVE_SECONDS=300 swift test --filter SFTPIntegrationTests/testServeForManualUI` (nasłuch `127.0.0.1:2222`, użytkownik `ola`, hasło z `TestSFTPServer`), a w aplikacji — **kopii z innym identyfikatorem pakietu** (zob. [CLAUDE.md](pl/CLAUDE.md)) — dodać profil SFTP na ten adres.
 
 ### Biblioteki i licencje
 | Komponent | Do czego | Licencja |
@@ -100,7 +100,7 @@ Wersje są przypięte w `Package.swift` (Citadel `exact`) i `Package.resolved`. 
 - Pliki tymczasowe są rejestrowane w dzienniku — po przerwanej sesji niedokończone kopie są sprzątane, a elementy przerwane w trakcie przenoszenia **przywracane**, nie kasowane.
 - Rozmiary folderów i skróty zawartości są liczone tylko po akcji użytkownika; listowanie nie czyta zawartości plików.
 
-Szczegóły i zasady dla współtwórców: [CLAUDE.md](../CLAUDE.md#zasady-bezpieczeństwa-operacji).
+Szczegóły i zasady dla współtwórców: [CLAUDE.md](pl/CLAUDE.md#zasady-bezpieczeństwa-operacji).
 
 ## Wymagania i budowanie
 macOS 14.4+ (minimalny rozmiar okna 900 pt), Xcode 15+ (rozwijane na Xcode 27 / Swift 6.4).
@@ -150,10 +150,10 @@ Klawisze F wymagają Fn albo włączonej opcji „Używaj klawiszy F1, F2 itd. j
 - W wąskich panelach (np. przy otwartym panelu informacji) kolumny „Rodzaj” i „Zmodyfikowano” mogą się ucinać — widoczność kolumn zmienisz prawym kliknięciem na nagłówku tabeli albo poszerz panel przeciągając separator.
 - Automatyczne odświeżanie widzi zmiany bezpośrednio w otwartym folderze, nie w podfolderach ani w zawartości plików.
 - Zbiorcza zmiana nazw odrzuca zamiany i łańcuchy nazw (a→b, b→a) zamiast je obsługiwać.
-- Plan prac i to, czego jeszcze nie ma: [ROADMAP.md](../ROADMAP.md).
+- Plan prac i to, czego jeszcze nie ma: [ROADMAP.md](pl/ROADMAP.md).
 
 ## Współtworzenie
-Zob. [CONTRIBUTING.md](../CONTRIBUTING.md). Logika plikowa musi mieć testy na katalogach tymczasowych; testy sieciowe tylko na serwerach lokalnych w procesie testowym.
+Zob. [CONTRIBUTING.md](pl/CONTRIBUTING.md). Logika plikowa musi mieć testy na katalogach tymczasowych; testy sieciowe tylko na serwerach lokalnych w procesie testowym.
 
 ## Licencja i autorstwo
 MIT — zob. [LICENSE](../LICENSE). Ikona aplikacji: [Tools/icon](../Tools/icon/README.md) (zaprojektowana z użyciem skilla [logo-design](https://github.com/kaankiziltug/logo-design-skill), MIT).

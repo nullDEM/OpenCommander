@@ -1,88 +1,87 @@
-# Ręczne testy (zależne od systemu)
+# Manual tests (system dependent)
 
-Wykonuj **wyłącznie na kopiach / katalogach testowych**, nie na ważnych danych. Testy automatyczne (`swift test`) pokrywają logikę; ta lista pokrywa to, czego nie da się sprawdzić bez okna i systemu.
+*(Polish original: [docs/pl/MANUAL_TESTS.md](docs/pl/MANUAL_TESTS.md). Menu and button names are in the Polish UI; English glosses are in parentheses.)*
 
-## Przygotowanie
-Utwórz folder `~/OC-test` z podfolderami `A` i `B`, w `A` kilka plików (w tym `raport.xlsx`, plik ~1 GB, plik z emoji w nazwie, skrót symboliczny `ln -s`), w `B` plik `raport.xlsx` o innej treści.
+Run these **only on copies / test folders**, never on important data. The automated tests (`swift test`) cover the logic; this list covers what cannot be checked without a window and the system.
 
-## Interfejs i klawiatura
-- [ ] Oba panele pokazują folder; kliknięcie w panel czyni go aktywnym (pas u góry, nagłówek drugiego przygaszony).
-- [ ] **Tab** w tabeli przełącza panel; **⌘`** też; Tab w polu tekstowym arkusza **nie** przełącza paneli.
-- [ ] Strzałki, Shift/⌘-klik: zaznaczanie wielokrotne. **Enter** otwiera folder / plik dokładnie raz.
-- [ ] Klik w nagłówek kolumny sortuje; strzałka kierunku się zgadza; sortowanie przeżywa restart aplikacji.
-- [ ] **⌘↑**, **⌘[**, **⌘]**, **⌘R**, **⇧⌘N**, **⇧⌘.**, **⇧⌘O**, **F2**, **F5**, **F6**, **⌘⌫** — działają; pozycje menu są wyszarzone, gdy akcja niedostępna (np. brak zaznaczenia).
-- [ ] **Esc** zamyka arkusze (nowy folder, zmiana nazwy); w konflikcie = „Anuluj operację”.
-- [ ] Widoczny fokus; sprawdź jasny i ciemny motyw oraz małe okno (minimum 900 pt) i duże.
-- [ ] VoiceOver czyta nazwy plików, „dowiązanie symboliczne”, aktywny panel, postęp.
+## Preparation
+Create a folder `~/OC-test` with subfolders `A` and `B`. Put a few files in `A` (including `raport.xlsx`, a ~1 GB file, a file with an emoji in its name, and a symbolic link made with `ln -s`), and in `B` a file `raport.xlsx` with different content.
 
-## Etap 2A
-- [ ] **⌘F** pokazuje pasek filtra, wpisanie „zolc” znajduje „Żółć…”; **Esc** zamyka i czyści; zmiana folderu czyści filtr; kopiowanie/Kosz działa tylko na widocznych po filtrze.
-- [ ] **Spacja** na zaznaczonym pliku otwiera Quick Look (strzałki przełączają, Spacja zamyka).
-- [ ] Prawy klik na elemencie spoza zaznaczenia zaznacza go; menu: Otwórz, **Otwórz za pomocą** (lista aplikacji), Pokaż w Finderze, Kopiuj ścieżkę, Informacje, ulubione, kopiuj/przenieś, zmiana nazwy, Kosz. Prawy klik na pustym miejscu: nowy folder, odśwież, ukryte.
-- [ ] **⌘I** otwiera panel informacji (także **przy starcie aplikacji z otwartym panelem — to było źródłem awarii**); pokazuje typ, daty, uprawnienia, cel dowiązania; „Oblicz rozmiar” dla folderu liczy dopiero po kliknięciu i da się anulować.
-- [ ] **⌘D** dodaje/usuwa folder z ulubionych; ulubione i „Ostatnie” w pasku bocznym przeżywają restart; usunięty folder ulubiony jest wyszarzony.
+## Interface and keyboard
+- [ ] Both panels show a folder; clicking a panel makes it active (a bar at the top, the other panel's header dimmed).
+- [ ] **Tab** in the table switches the panel; **⌘`** too; Tab in a sheet's text field does **not** switch panels.
+- [ ] Arrows, Shift/⌘-click: multi-selection. **Enter** opens a folder / file exactly once.
+- [ ] Clicking a column header sorts; the direction arrow is right; the sort order survives an app restart.
+- [ ] **⌘↑**, **⌘[**, **⌘]**, **⌘R**, **⇧⌘N**, **⇧⌘.**, **⇧⌘O**, **F2**, **F5**, **F6**, **⌘⌫** work; menu items are greyed out when the action is unavailable (for example with no selection).
+- [ ] **Esc** closes sheets (new folder, rename); in a conflict it means "Anuluj operację" (cancel the operation).
+- [ ] Focus is visible; check the light and dark theme, a small window (minimum 900 pt) and a large one.
+- [ ] VoiceOver reads file names, "symbolic link", the active panel, progress.
 
-## Etap 2B — karty i przestrzenie
-- [ ] **⌘T** (lub przycisk ⊞ w nagłówku) dodaje kartę z tą samą lokalizacją; pasek kart pojawia się przy ≥ 2 kartach; klik przełącza; × i **⌘W** zamykają; **⌘W na ostatniej karcie panelu zamyka okno** — sprawdź też, że w menu Plik nie ma drugiego „Zamknij”.
-- [ ] Każda karta ma własną historię (wstecz/dalej), zaznaczenie, sortowanie i filtr; po powrocie do karty wszystko na swoim miejscu.
-- [ ] „Otwórz w nowej karcie” z menu kontekstowego folderu; **⇧⌘]** / **⇧⌘[** przełączają karty cyklicznie; limit 10 kart pokazuje komunikat.
-- [ ] Karty i aktywna karta przeżywają restart aplikacji; karta z usuniętym folderem otwiera najbliższy istniejący.
-- [ ] **Przestrzenie:** ⌥⌘S zapisuje (pusta nazwa i **powtórzona nazwa są odrzucane**); wybór z menu „Przestrzenie” lub paska bocznego przywraca karty obu paneli; „Usuń przestrzeń” działa; przestrzenie przeżywają restart.
+## Stage 2A
+- [ ] **⌘F** shows the filter bar, typing "zolc" finds "Żółć…"; **Esc** closes and clears it; changing folder clears the filter; copying / Trash acts only on the items visible after the filter.
+- [ ] **Space** on a selected file opens Quick Look (arrows switch, Space closes).
+- [ ] Right-click on an item outside the selection selects it; menu: Open, **Open with** (list of apps), Reveal in Finder, Copy path, Info, favorites, copy / move, rename, Trash. Right-click on empty space: new folder, refresh, hidden files.
+- [ ] **⌘I** opens the info panel (also **when the app starts with the panel open, which used to be a crash source**); it shows type, dates, permissions, the symlink target; "Oblicz rozmiar" (Compute size) for a folder only counts after the click and can be cancelled.
+- [ ] **⌘D** adds / removes a folder from favorites; favorites and "Ostatnie" (Recent) in the sidebar survive a restart; a removed favorite folder is greyed out.
 
-## Etap 2C — przeciąganie i odświeżanie
-- [ ] Przeciągnięcie pliku/zaznaczenia z jednego panelu na drugi: ten sam wolumin → przeniesienie, z ⌥ → kopia; operacja pojawia się w kolejce.
-- [ ] Przeciągnięcie zaznaczenia kilku elementów przenosi wszystkie; przeciągnięcie niezaznaczonego wiersza tylko ten wiersz.
-- [ ] Upuszczenie na ten sam folder nic nie robi; konflikt nazw pokazuje dialog.
-- [ ] Przeciągnięcie z Findera do panelu działa (zwykle kopia/przeniesienie wg woluminu).
-- [ ] Plik dodany/usunięty z Findera lub Terminala pojawia się/znika w panelu w ok. 0,5 s, bez utraty zaznaczenia.
+## Stage 2B: tabs and workspaces
+- [ ] **⌘T** (or the ⊞ button in the header) adds a tab with the same location; the tab bar appears with ≥ 2 tabs; clicking switches; × and **⌘W** close; **⌘W on the last tab of a panel closes the window**; also check that the File menu has no second "Close".
+- [ ] Each tab has its own history (back / forward), selection, sort order and filter; after returning to a tab everything is in place.
+- [ ] "Open in a new tab" from a folder's context menu; **⇧⌘]** / **⇧⌘[** switch tabs cyclically; the limit of 10 tabs shows a message.
+- [ ] Tabs and the active tab survive an app restart; a tab with a deleted folder opens the nearest existing one.
+- [ ] **Workspaces:** ⌥⌘S saves (an empty name and **a repeated name are rejected**); choosing from the "Przestrzenie" menu or the sidebar restores both panels' tabs; "Usuń przestrzeń" (delete workspace) works; workspaces survive a restart.
 
-- [ ] **⌘C / ⌘V** (oraz ⌥C / ⌥V) w panelu kopiują zaznaczone pliki i foldery do schowka i wklejają je do folderu aktywnego panelu; wklejenie do Findera i z Findera działa; w polu filtra ⌘C/⌘V działają na tekst.
-- [ ] Kliknięcie dysku zewnętrznego w pasku bocznym zawsze otwiera go w prawym panelu (i go aktywuje).
+## Stage 2C: dragging and refreshing
+- [ ] Dragging a file / selection from one panel to the other: same volume → move, with ⌥ → copy; the operation appears in the queue.
+- [ ] Dragging a multi-item selection moves all of them; dragging an unselected row moves only that row.
+- [ ] Dropping onto the same folder does nothing; a name conflict shows the dialog.
+- [ ] Dragging from Finder into a panel works (usually a copy / move depending on the volume).
+- [ ] A file added / removed from Finder or Terminal appears / disappears in the panel within about 0.5 s, without losing the selection.
+- [ ] **⌘C / ⌘V** (and ⌥C / ⌥V) in a panel copy the selected files and folders to the clipboard and paste them into the active panel's folder; pasting to and from Finder works; in the filter field ⌘C / ⌘V act on text.
+- [ ] Clicking an external drive in the sidebar always opens it in the right panel (and activates it).
+- [ ] **⌘F** typing part of a name finds files in subfolders (with the relative path next to the name); Enter / double-click on a result opens the file, and a folder enters it; the button next to the field switches to a plain filter of the current list; changing folder clears the search.
 
-- [ ] **⌘F** wpisanie fragmentu nazwy znajduje pliki w podfolderach (z ścieżką względną obok nazwy); Enter/podwójne kliknięcie na wyniku otwiera plik, a folder wchodzi do niego; przycisk obok pola przełącza na sam filtr bieżącej listy; zmiana folderu czyści wyszukiwanie.
+## Stage 3: tools and layout
+- [ ] **⇧⌘R** on selected files: the preview updates live; collisions are red and block the button; after running, the new names are selected.
+- [ ] **⇧⌘K** with two different folders shows the differences; "Kopiuj zaznaczone →/←" (copy selected) puts them in the queue; identical folders → "Foldery są takie same" (the folders are the same).
+- [ ] **Duplicates:** "Szukaj duplikatów" (find duplicates) only works after the click; "Przerwij" (stop) works; selecting all copies in a group is rejected; deleting goes to the Trash.
+- [ ] **Divider:** dragging changes the panel widths, you cannot go below about 250 pt, a double-click restores equal widths; start with the info panel open without a crash.
+- [ ] Right-click on the table header lets you hide columns (for example "Rodzaj" / Kind): check that the setting works and is remembered.
+- [ ] Light and dark themes look right.
+- [ ] **Pomoc → Skróty klawiszowe** (Help → Keyboard Shortcuts, ⇧⌘/) opens the list window; check that the listed shortcuts really work.
 
-## Etap 3 — narzędzia i układ
-- [ ] **⇧⌘R** na zaznaczonych plikach: podgląd zmienia się na bieżąco; kolizje są czerwone i blokują przycisk; po wykonaniu nowe nazwy są zaznaczone.
-- [ ] **⇧⌘K** przy dwóch różnych folderach pokazuje różnice; „Kopiuj zaznaczone →/←” przenosi je do kolejki; foldery takie same → „Foldery są takie same”.
-- [ ] **Duplikaty:** „Szukaj duplikatów” działa dopiero po kliknięciu; „Przerwij” działa; zaznaczenie wszystkich kopii w grupie jest odrzucane; usunięcie trafia do Kosza.
-- [ ] **Separator:** przeciągnięcie zmienia szerokość paneli, nie da się zejść poniżej ok. 250 pt, dwuklik przywraca po równo; start z otwartym panelem informacji bez awarii.
-- [ ] Prawy klik na nagłówku tabeli pozwala ukryć kolumny (np. „Rodzaj”) — sprawdź, czy ustawienie działa i się zapamiętuje.
-- [ ] Jasny i ciemny motyw wyglądają poprawnie.
+## Operations
+- [ ] New folder (including a name with `/`, empty, existing → a readable error, no change on disk).
+- [ ] Rename; change **only the letter case** (`raport.xlsx` → `Raport.xlsx`).
+- [ ] Copy `A→B` with a conflict: **Pomiń** (skip), **Zachowaj obie** (keep both, `… kopia.xlsx`), **Zastąp** (replace; the old one lands in the Trash, check the Trash and "Put Back").
+- [ ] "Zastosuj do wszystkich" (apply to all) asks only once. **Esc** / "Anuluj operację" stops everything.
+- [ ] Copying within the same folder (both panels on `A`) creates "… kopia"; Move is disabled.
+- [ ] Move to the Trash with a confirmation; the item comes back with "Put Back". The app does not empty the Trash.
+- [ ] A large file **to another volume** (an external drive / disk image): the byte bar, speed, time and ETA grow smoothly; **Cancel in the middle** → no destination or temporary file, the source untouched.
+- [ ] Same volume (APFS): copying is instant (a clone); the bar jumps to the end, which is expected.
 
-- [ ] **Pomoc → Skróty klawiszowe** (⇧⌘/) otwiera okno z listą; sprawdź, czy skróty z listy faktycznie działają.
+## Failures and environment
+- [ ] **Force Quit the app in the middle of copying a large file** → after restart a cleanup message; no `.opencommander-tmp-*` is left in the destination folder.
+- [ ] Unplug a volume during copying → a readable error, the source untouched.
+- [ ] A read-only volume / no permissions (`chmod 000`) → a permissions error, no leftovers.
+- [ ] A full disk (a small disk image) → a "Brak miejsca" (no space) message, the source untouched, no temporary file.
+- [ ] A folder into its own descendant → refused with a message.
+- [ ] Volumes in the sidebar: plug / unplug → the list refreshes; breadcrumbs for `/Volumes/X` start with "X".
+- [ ] **Ejecting:** the ⏏ button in the sidebar next to a USB drive / disk image ejects it; Macintosh HD has no button. After ejecting, panels that showed it return to the home folder. ⌘E ejects the active panel's volume.
+- [ ] Ejecting a busy volume (a file open in another app) → a message with the reason, the volume stays.
+- [ ] Ejecting a volume with a queued copy in progress → refused with a message (cancel the operation first).
+- [ ] Desktop / Documents: the system asks for consent (TCC); the app does not require Full Disk Access.
 
-## Operacje
-- [ ] Nowy folder (w tym nazwa z `/`, pusta, istniejąca → czytelny błąd, brak zmian na dysku).
-- [ ] Zmiana nazwy; zmiana **samej wielkości liter** (`raport.xlsx` → `Raport.xlsx`).
-- [ ] Kopiuj `A→B` z konfliktem: **Pomiń**, **Zachowaj obie** (`… kopia.xlsx`), **Zastąp** (stary ląduje w Koszu — sprawdź w Koszu i „Przywróć”).
-- [ ] „Zastosuj do wszystkich” pyta tylko raz. **Esc** / „Anuluj operację” zatrzymuje całość.
-- [ ] Kopiowanie w obrębie tego samego folderu (oba panele na `A`) tworzy „… kopia”; Przenieś jest wyłączone.
-- [ ] Przenieś do Kosza z potwierdzeniem; element wraca z „Przywróć”. Kosz nie jest opróżniany przez aplikację.
-- [ ] Duży plik **na inny wolumin** (dysk zewnętrzny/obraz dysku): pasek bajtów, prędkość, czas, ETA rosną płynnie; **Anuluj w środku** → brak pliku docelowego i tymczasowego, źródło nietknięte.
-- [ ] Ten sam wolumin (APFS): kopiowanie jest natychmiastowe (klon) — pasek przeskakuje do końca, to oczekiwane.
-
-## Awarie i środowisko
-- [ ] **Zamknij aplikację (Force Quit) w trakcie kopiowania dużego pliku** → po ponownym uruchomieniu komunikat o sprzątaniu; w folderze docelowym nie zostaje `.opencommander-tmp-*`.
-- [ ] Odłącz wolumin podczas kopiowania → czytelny błąd, źródło nietknięte.
-- [ ] Wolumin tylko do odczytu / brak uprawnień (`chmod 000`) → błąd uprawnień, bez śmieci.
-- [ ] Pełny dysk (mały obraz dysku) → komunikat „Brak miejsca”, źródło nietknięte, brak pliku tymczasowego.
-- [ ] Folder do własnego potomka → odmowa z komunikatem.
-- [ ] Wolumin w pasku bocznym: podłącz/odłącz → lista się odświeża; okruszki dla `/Volumes/X` zaczynają się od „X”.
-- [ ] **Wysuwanie:** przycisk ⏏ w pasku bocznym przy pendrive/obrazie dysku wysuwa go; Macintosh HD nie ma przycisku. Po wysunięciu panele, które go pokazywały, wracają do katalogu domowego. ⌘E wysuwa wolumin aktywnego panelu.
-- [ ] Wysuwanie woluminu zajętego (plik otwarty w innej aplikacji) → komunikat z powodem, wolumin zostaje.
-- [ ] Wysuwanie woluminu, na którym trwa kopiowanie z kolejki → odmowa z komunikatem (najpierw anuluj operację).
-- [ ] Pulpit/Dokumenty: system zapyta o zgodę (TCC) — aplikacja nie wymaga Full Disk Access.
-
-## Etap 4 — połączenia sieciowe (na własnym serwerze testowym lub lokalnym serwerze z testów)
-Użyj serwera, którego nie używasz do niczego ważnego (np. `OC_SERVE_SECONDS=600 swift test --filter SFTPIntegrationTests/testServeForManualUI` → `127.0.0.1:2222`, użytkownik `ola`). Aplikację uruchamiaj w kopii z innym identyfikatorem pakietu.
-- [ ] Pasek boczny → „Połączenia” → **＋**: formularz pokazuje pola zależne od protokołu; FTP i WebDAV po HTTP pokazują ostrzeżenie i wymagają zgody; **Testuj połączenie** zwraca czytelny wynik; zły adres/port/hasło dają odpowiedni komunikat (DNS, odmowa, uwierzytelnianie), bez hasła w treści.
-- [ ] Pierwsze połączenie SFTP pokazuje serwer, port, typ klucza i odcisk; „Nie ufaj” przerywa i niczego nie zapisuje; „Zaufaj i połącz” zapisuje (widać w *Połączenia → Zaufane serwery SSH*); po usunięciu zaufania pytanie wraca.
-- [ ] Hasło: z zaznaczonym „Zapamiętaj w Keychain” następne połączenie nie pyta; bez zaznaczenia pyta po rozłączeniu; edycja profilu z pustym polem hasła nie zmienia zapisanego hasła.
-- [ ] Kliknięcie połączenia otwiera katalog początkowy w aktywnym panelu; okruszki zaczynają się od nazwy połączenia; „w górę” zatrzymuje się na korzeniu serwera; wstecz/dalej działają między lokalnym a zdalnym.
-- [ ] Oba panele na różnych serwerach: F5 serwer→serwer odmawia z komunikatem; lokalny→zdalny to wysyłanie, zdalny→lokalny to pobieranie; **F6 (przenieś) jest wyłączone**, gdy któryś panel jest zdalny.
-- [ ] Wysyłanie/pobieranie folderu z plikami o nazwach ze spacjami, `#`, `%`, polskimi znakami i emoji; postęp w bajtach, prędkość; **anulowanie** w środku dużego pliku nie zostawia na serwerze pliku ani `.opencommander-tmp-*`.
-- [ ] Konflikt nazw przy wysyłaniu: pomiń / zachowaj obie / zastąp — dialog przy „zastąp” mówi, że na serwerze nie ma Kosza; zastąpienie folderu jest odrzucone.
-- [ ] **⌘⌫** w panelu zdalnym: pytanie z nazwą serwera, folderem i liczbą elementów oraz informacją o nieodwracalności; po zatwierdzeniu elementy znikają z serwera, a nie trafiają do Kosza.
-- [ ] Odłączenie serwera (wyłączenie, Wi-Fi) w trakcie transferu: operacja kończy się błędem z przyciskiem „Ponów nieudane od początku”; po przywróceniu serwera ponowienie działa i następna akcja łączy ponownie.
-- [ ] Menu kontekstowe zdalnego elementu nie ma „Pokaż w Finderze”, Quick Look ani ulubionych; Spacja nic nie robi; dwuklik pliku wyjaśnia, że trzeba go skopiować.
-- [ ] Usunięcie profilu: pytanie, czy usunąć sekrety z Keychain; po „tylko profil” hasło zostaje w Keychain (Dostęp do pęku kluczy → wpisy usługi `org.opencommander.OpenCommander.connections`).
+## Stage 4: network connections (on your own test server or the local server from the tests)
+Use a server you do not use for anything important (for example `OC_SERVE_SECONDS=600 swift test --filter SFTPIntegrationTests/testServeForManualUI` → `127.0.0.1:2222`, user `ola`). Run the app in a copy with a different bundle identifier.
+- [ ] Sidebar → "Połączenia" (Connections) → **＋**: the form shows protocol-dependent fields; FTP and WebDAV over HTTP show a warning and need consent; **Testuj połączenie** (test connection) returns a readable result; a wrong address / port / password gives the right message (DNS, refused, authentication) without the password in the text.
+- [ ] The first SFTP connection shows the server, port, key type and fingerprint; "Nie ufaj" (don't trust) aborts and saves nothing; "Zaufaj i połącz" (trust and connect) saves (visible in *Połączenia → Zaufane serwery SSH*); after removing the trust the question comes back.
+- [ ] Password: with "Zapamiętaj w Keychain" ticked the next connection does not ask; unticked, it asks after a disconnect; editing a profile with an empty password field does not change the saved password.
+- [ ] Clicking a connection opens the start folder in the active panel; breadcrumbs start with the connection name; "up" stops at the server root; back / forward work across local and remote.
+- [ ] Both panels on different servers: F5 server→server refuses with a message; local→remote is an upload, remote→local a download; **F6 (move) is disabled** when either panel is remote.
+- [ ] Uploading / downloading a folder with files whose names contain spaces, `#`, `%`, Polish characters and emoji; byte progress, speed; **cancelling** in the middle of a large file leaves neither a file nor `.opencommander-tmp-*` on the server.
+- [ ] A name conflict during upload: skip / keep both / replace; the "replace" dialog says the server has no Trash; replacing a folder is rejected.
+- [ ] **⌘⌫** in a remote panel: a question with the server name, folder and number of items and a note that it is irreversible; after confirming, the items disappear from the server and do not go to the Trash.
+- [ ] Disconnecting the server (switching it off, Wi-Fi) during a transfer: the operation ends with an error and a "Ponów nieudane od początku" (retry failed from the beginning) button; after the server is back, retrying works and the next action reconnects.
+- [ ] The context menu of a remote item has no "Pokaż w Finderze", Quick Look or favorites; Space does nothing; double-clicking a file explains that it has to be copied.
+- [ ] Deleting a profile: a question whether to delete the secrets from the Keychain; after "only the profile" the password stays in the Keychain (Keychain Access → items of the service `org.opencommander.OpenCommander.connections`).

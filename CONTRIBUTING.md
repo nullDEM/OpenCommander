@@ -1,8 +1,10 @@
-# Współtworzenie
+# Contributing
 
-1. Przeczytaj [ARCHITECTURE.md](ARCHITECTURE.md) i zasady bezpieczeństwa w [CLAUDE.md](CLAUDE.md).
-2. Logika plikowa trafia do `OpenCommanderCore` i **musi mieć testy** na katalogach tymczasowych. Testy nie mogą dotykać prawdziwego Kosza (użyj `FakeTrasher`) ani plików użytkownika.
-3. Przed PR: `swift test --scratch-path /tmp/oc-spm` oraz build przez `xcodebuild` (komendy w README).
-4. Po zmianie `project.yml` uruchom `xcodegen generate` i dołącz zmieniony `.xcodeproj`.
-5. Protokoły sieciowe: tylko te z ROADMAP (etap 4); nowe zależności zewnętrzne wymagają dyskusji (licencja, utrzymanie, przypięta wersja). Testy sieciowe wyłącznie na serwerach lokalnych w procesie testowym — nigdy na serwerach publicznych ani z prawdziwymi danymi logowania.
-6. Nie pokazuj w UI funkcji, która nie działa.
+*(Polish original: [docs/pl/CONTRIBUTING.md](docs/pl/CONTRIBUTING.md).)*
+
+1. Read [ARCHITECTURE.md](ARCHITECTURE.md) and the safety rules in [CLAUDE.md](CLAUDE.md).
+2. File logic goes into `OpenCommanderCore` and **must have tests** on temporary directories. Tests must not touch the real Trash (use `FakeTrasher`) or user files.
+3. Before a PR: `swift test --scratch-path /tmp/oc-spm` and an `xcodebuild` build (commands in the README).
+4. After changing `project.yml` run `xcodegen generate` and include the changed `.xcodeproj`.
+5. Network protocols: only those in the ROADMAP (stage 4); new external dependencies need a discussion (license, maintenance, pinned version). Network tests only against local servers inside the test process, never against public servers or with real credentials.
+6. Do not show a function in the UI that does not work.

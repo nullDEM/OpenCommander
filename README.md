@@ -143,7 +143,7 @@ cryptography are not implemented in this project.
   items interrupted in the middle of a move are **restored**, not deleted.
 - Folder sizes and content hashes are computed only after a user action; listing never reads file contents.
 
-Details and rules for contributors: [CLAUDE.md](CLAUDE.md) (in Polish).
+Details and rules for contributors: [CLAUDE.md](CLAUDE.md).
 
 ## Requirements and building
 macOS 14.4 or later (minimum window width 900 pt), Xcode 15 or later (developed on Xcode 27 / Swift 6.4).
@@ -197,10 +197,10 @@ F keys need Fn or the "Use F1, F2, etc. keys as standard function keys" option; 
   change the column visibility with a right click on the table header, or widen the panel by dragging the divider.
 - Automatic refresh sees changes directly in the open folder, not in subfolders or file contents.
 - Batch rename rejects swaps and chains of names (a→b, b→a) instead of handling them.
-- The plan and what is still missing: [ROADMAP.md](ROADMAP.md) (in Polish).
+- The plan and what is still missing: [ROADMAP.md](ROADMAP.md).
 
 ## Contributing
-See [CONTRIBUTING.md](CONTRIBUTING.md) (in Polish). File logic must have tests on temporary directories; network
+See [CONTRIBUTING.md](CONTRIBUTING.md). File logic must have tests on temporary directories; network
 tests only against local servers inside the test process.
 
 ## License and credits
