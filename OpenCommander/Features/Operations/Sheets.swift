@@ -64,10 +64,15 @@ struct ConflictSheet: View {
                 GridRow { Text("Istniejący").font(.caption.weight(.semibold)); Text(Self.describe(c.existing)) }
             }
             .font(.callout).foregroundStyle(.secondary)
-            Text(c.existing.deletingLastPathComponent().path)
+            Text(c.existing.remoteLocation.map { "Serwer: " + $0.parent.path.string } ?? c.existing.deletingLastPathComponent().path)
                 .font(.caption).foregroundStyle(.tertiary).textSelection(.enabled).lineLimit(2).truncationMode(.middle)
             Toggle("Zastosuj do wszystkich kolejnych konfliktów w tej operacji", isOn: $applyToAll)
-            Text("„Zastąp” przenosi istniejący element do Kosza.").font(.caption).foregroundStyle(.secondary)
+            if c.existing.isRemoteLocation {
+                Text("„Zastąp” nadpisze plik NA SERWERZE — serwer nie ma Kosza, więc starej wersji nie da się stamtąd przywrócić.")
+                    .font(.caption).foregroundStyle(.orange)
+            } else {
+                Text("„Zastąp” przenosi istniejący element do Kosza.").font(.caption).foregroundStyle(.secondary)
+            }
             HStack {
                 Button("Anuluj operację", role: .cancel) { operations.cancel(pending.jobID) }
                     .keyboardShortcut(.cancelAction)
@@ -84,6 +89,7 @@ struct ConflictSheet: View {
     }
 
     private static func describe(_ url: URL) -> String {
+        guard url.isFileURL else { return "na serwerze" }
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path) else { return "niedostępny" }
         let isDir = (attrs[.type] as? FileAttributeType) == .typeDirectory
         let size = isDir ? "folder" : ProgressFormat.bytes((attrs[.size] as? NSNumber)?.int64Value ?? 0)

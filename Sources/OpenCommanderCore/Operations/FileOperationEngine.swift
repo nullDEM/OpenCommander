@@ -31,13 +31,16 @@ public struct FileOperationEngine: Sendable {
     /// Minimalny odstęp między raportami postępu bajtowego.
     let progressInterval: TimeInterval
     let journal: TempJournal?
+    /// Obsługa operacji na serwerach zdalnych (SFTP/FTP/WebDAV). Bez niej operacje zdalne kończą się błędem.
+    let remote: (any RemoteOperationHandling)?
 
-    public init(trasher: any Trashing = SystemTrasher(), journal: TempJournal? = nil) {
-        self.init(trasher: trasher, forceCrossVolumeMove: false, journal: journal)
+    public init(trasher: any Trashing = SystemTrasher(), journal: TempJournal? = nil, remote: (any RemoteOperationHandling)? = nil) {
+        self.init(trasher: trasher, forceCrossVolumeMove: false, journal: journal, remote: remote)
     }
 
     init(trasher: any Trashing, forceCrossVolumeMove: Bool = false, allowClone: Bool = true,
-         progressInterval: TimeInterval = 0.1, journal: TempJournal? = nil) {
+         progressInterval: TimeInterval = 0.1, journal: TempJournal? = nil, remote: (any RemoteOperationHandling)? = nil) {
+        self.remote = remote
         self.journal = journal
         self.trasher = trasher
         self.forceCrossVolumeMove = forceCrossVolumeMove
@@ -48,6 +51,14 @@ public struct FileOperationEngine: Sendable {
     public func run(_ op: FileOperation,
                     conflictHandler: @escaping ConflictHandler = { _ in ConflictDecision(.skip) },
                     progress: @escaping ProgressHandler = { _ in }) async -> OperationReport {
+        if op.involvesRemote || op.kind == .delete {
+            guard let remote else {
+                return OperationReport(results: op.sources.map {
+                    ItemResult(source: $0, outcome: .failed(.other(name: $0.lastPathComponent, reason: "obsługa serwerów zdalnych nie jest dostępna.")))
+                })
+            }
+            return await remote.run(op, conflictHandler: conflictHandler, progress: progress)
+        }
         var results: [ItemResult] = []
         var sticky: ConflictResolution?
         let total = op.sources.count
@@ -67,6 +78,8 @@ public struct FileOperationEngine: Sendable {
             switch op.kind {
             case .trash:
                 outcome = trash(source)
+            case .delete:
+                outcome = .failed(.other(name: source.lastPathComponent, reason: "usuwanie trwałe jest dostępne tylko na serwerach zdalnych."))
             case .copy, .move:
                 if let dest = op.destination {
                     outcome = await transfer(source, kind: op.kind, into: dest, handler: conflictHandler,

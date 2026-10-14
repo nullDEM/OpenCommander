@@ -28,6 +28,8 @@ public final class PanelState: Identifiable {
     public private(set) var forward: [URL] = []
 
     @ObservationIgnored public var onStateChange: (() -> Void)?
+    /// Listowanie lokalizacji zdalnych (`ocremote://…`); ustawiane przez aplikację. Bez niego zdalny adres kończy się błędem.
+    @ObservationIgnored public var remoteLister: (@Sendable (RemoteLocation) async throws -> [FileEntry])?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var watcher: DirectoryWatcher?
@@ -35,9 +37,14 @@ public final class PanelState: Identifiable {
 
     private enum HistoryMode { case push, back, forward, none }
 
+    /// Lokalne adresy są normalizowane; zdalne (`ocremote://`) zostają bez zmian.
+    static func normalize(_ url: URL) -> URL { url.isFileURL ? url.standardizedFileURL : url }
+    /// Klucz tożsamości lokalizacji: ścieżka lokalna albo pełny adres zdalny (ta sama ścieżka na dwóch serwerach to dwie lokalizacje).
+    static func key(_ url: URL) -> String { url.isFileURL ? url.path : url.absoluteString }
+
     public init(side: PanelSide, location: URL, sortKey: SortKey = .name, sortAscending: Bool = true, showHidden: Bool = false) {
         self.side = side
-        self.location = location.standardizedFileURL
+        self.location = Self.normalize(location)
         self.sortKey = sortKey
         self.sortAscending = sortAscending
         self.showHidden = showHidden
@@ -47,14 +54,18 @@ public final class PanelState: Identifiable {
 
     public var canGoBack: Bool { !back.isEmpty }
     public var canGoForward: Bool { !forward.isEmpty }
-    public var canGoUp: Bool { location.path != "/" }
+    public var isRemote: Bool { location.isRemoteLocation }
+    public var canGoUp: Bool {
+        if let r = location.remoteLocation { return !r.path.isRoot }
+        return location.path != "/"
+    }
     /// Wpisy widoczne po filtrze. Operacje działają wyłącznie na widocznych — nie na ukrytych filtrem.
     public var visibleEntries: [FileEntry] {
         if isRecursiveSearch, let results = searchResults { return FileFilter.apply(results, text: filterText) }
         return FileFilter.apply(entries, text: filterText)
     }
     /// Filtr działa na całym drzewie pod bieżącym folderem (wyniki mogą leżeć w podfolderach).
-    public var isRecursiveSearch: Bool { searchSubfolders && isFiltering }
+    public var isRecursiveSearch: Bool { searchSubfolders && isFiltering && !isRemote }
     public var isFiltering: Bool { !filterText.trimmingCharacters(in: .whitespaces).isEmpty }
     public var selectedEntries: [FileEntry] { visibleEntries.filter { selection.contains($0.id) } }
     /// Suma rozmiarów zaznaczonych plików, których rozmiar jest znany (foldery nie są liczone).
@@ -63,7 +74,7 @@ public final class PanelState: Identifiable {
 
     // MARK: - Nawigacja
 
-    public func navigate(to url: URL) { load(url.standardizedFileURL, mode: .push, select: nil) }
+    public func navigate(to url: URL) { load(Self.normalize(url), mode: .push, select: nil) }
 
     public func goBack() {
         guard let target = back.last else { return }
@@ -78,12 +89,13 @@ public final class PanelState: Identifiable {
     public func goUp() {
         guard canGoUp else { return }
         let child = location
-        load(location.deletingLastPathComponent().standardizedFileURL, mode: .push, select: [child.path])
+        let parent = location.remoteLocation.map { $0.parent.url } ?? location.deletingLastPathComponent().standardizedFileURL
+        load(parent, mode: .push, select: [Self.key(child)])
     }
 
     /// Odświeża bieżący folder. `select` — ścieżki do zaznaczenia po załadowaniu.
     public func reload(selecting select: [URL]? = nil) {
-        load(location, mode: .none, select: select.map { Set($0.map { $0.standardizedFileURL.path }) })
+        load(location, mode: .none, select: select.map { Set($0.map { Self.key(Self.normalize($0)) }) })
     }
 
     public func setShowHidden(_ value: Bool) {
@@ -113,7 +125,13 @@ public final class PanelState: Identifiable {
         let hidden = showHidden
         loadTask = Task { [weak self] in
             do {
-                let list = try await DirectoryLister.list(target, showHidden: hidden)
+                let list: [FileEntry]
+                if let remote = target.remoteLocation {
+                    guard let lister = self?.remoteLister else { throw NetworkError.unsupported("brak obsługi połączeń zdalnych") }
+                    list = try await lister(remote).filter { hidden || !$0.isHidden }
+                } else {
+                    list = try await DirectoryLister.list(target, showHidden: hidden)
+                }
                 guard let self, gen == self.generation else { return } // nieaktualny wynik
                 self.commit(target, list, mode, select)
             } catch is CancellationError {
@@ -142,7 +160,7 @@ public final class PanelState: Identifiable {
     }
 
     private func reloadIfIdle() {
-        guard !isLoading else { return }
+        guard !isLoading, location.isFileURL else { return }
         reload()
     }
 
@@ -155,7 +173,7 @@ public final class PanelState: Identifiable {
     }
 
     private func commit(_ target: URL, _ list: [FileEntry], _ mode: HistoryMode, _ select: Set<FileEntry.ID>?) {
-        let changed = target.path != location.path
+        let changed = Self.key(target) != Self.key(location)
         switch mode {
         case .push where changed:
             back.append(location); forward.removeAll()
@@ -167,9 +185,14 @@ public final class PanelState: Identifiable {
             break
         }
         location = target
-        watchIfNeeded(target)
+        if target.isFileURL {
+            watchIfNeeded(target)
+            refreshFreeSpace(for: target)
+        } else {
+            // Serwer zdalny: bez obserwatora zmian (odświeżanie ręczne/po operacjach) i bez informacji o wolnym miejscu.
+            watcher?.stop(); watcher = nil; watchedPath = nil; freeSpace = nil
+        }
         if changed { filterText = "" }
-        refreshFreeSpace(for: target)
         entries = FileSorter.sorted(list, by: sortKey, ascending: sortAscending)
         loadError = nil
         isLoading = false

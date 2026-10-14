@@ -1,14 +1,14 @@
 # OpenCommander
 
-**Natywny, lokalny, dwupanelowy menedżer plików na macOS** (SwiftUI + AppKit), open source — alternatywa dla Findera dla osób pracujących z dużą liczbą plików.
-*(EN: a native, local-only, dual-pane file manager for macOS. UI language: Polish.)*
+**Natywny, dwupanelowy menedżer plików na macOS** (SwiftUI + AppKit), open source — pliki lokalne oraz serwery **SFTP, FTP, FTPS i WebDAV** w tych samych panelach.
+*(EN: a native dual-pane file manager for macOS with local files plus SFTP, FTP, FTPS and WebDAV. UI language: Polish.)*
 
 <p align="center">
   <img src="docs/screenshots/dark.png" alt="OpenCommander — ciemny motyw, dwa panele z kartami" width="900"><br>
   <img src="docs/screenshots/light.png" alt="OpenCommander — jasny motyw" width="900">
 </p>
 
-> **Zakres:** wyłącznie pliki lokalne (dysk, wybrane foldery, zamontowane woluminy). Brak FTP/SFTP/chmur i jakichkolwiek połączeń sieciowych — to świadoma decyzja. Aplikacja nie zbiera żadnych danych.
+> **Zakres:** pliki lokalne oraz — na jawne żądanie użytkownika — serwery SFTP, FTP, FTPS i WebDAV (zob. [Połączenia sieciowe](#połączenia-sieciowe)). Aplikacja niczego nie wysyła „do domu” i nie zbiera żadnych danych; łączy się wyłącznie z serwerami, które sam dodasz.
 
 ## Status
 Wczesna wersja **0.1**. Logika plikowa jest pokryta testami automatycznymi (SwiftPM, wyłącznie na katalogach tymczasowych), ale **interfejs jest sprawdzany ręcznie** — lista rzeczy do przeklikania jest w [MANUAL_TESTS.md](MANUAL_TESTS.md). Spodziewaj się błędów; zgłaszaj je przez Issues. Interfejs jest po polsku (bez systemu lokalizacji).
@@ -35,8 +35,65 @@ Aplikacja **nie jest notaryzowana** ani podpisana certyfikatem dewelopera — zb
 
 Pełna lista skrótów: menu **Pomoc → Skróty klawiszowe** (⇧⌘/) oraz tabela poniżej.
 
+## Połączenia sieciowe
+Sekcja **Połączenia** w pasku bocznym (⌥⌘K — menedżer połączeń). Każdy panel niezależnie pokazuje folder lokalny albo lokalizację na serwerze; kopiowanie między nimi (F5, przeciąganie, ⌘V) to wysyłanie lub pobieranie przez zwykłą kolejkę operacji.
+
+**Jak dodać połączenie:** pasek boczny → **＋** przy „Połączenia” (albo menu *Połączenia → Nowe połączenie…*) → wybierz protokół, wypełnij pola, **Testuj połączenie**, **Zapisz**. Kliknięcie połączenia w pasku bocznym łączy i otwiera katalog początkowy w aktywnym panelu.
+
+| | SFTP | FTP | FTPS (jawny/niejawny) | WebDAV |
+|---|---|---|---|---|
+| Szyfrowanie | SSH | **brak** (wymaga jawnej zgody w profilu) | TLS 1.2+, weryfikacja certyfikatu i nazwy hosta | HTTPS (HTTP tylko po jawnej zgodzie, z ostrzeżeniem) |
+| Logowanie | hasło, klucz (Ed25519/RSA, także z hasłem do klucza) | hasło, anonimowo | hasło, anonimowo | hasło (Basic/Digest), anonimowo |
+| Lista, pobieranie, wysyłanie | ✅ | ✅ (MLSD; zapasowo LIST — heurystyka) | ✅ | ✅ |
+| Nowy folder, zmiana nazwy, usuwanie | ✅ | ✅ | ✅ | ✅ |
+| Wznawianie przerwanych transferów | ❌ | ❌ | ❌ | ❌ |
+| Przenoszenie lokalne ↔ zdalne | ❌ (tylko kopia) | ❌ | ❌ | ❌ |
+| Kopiowanie serwer → serwer | ❌ | ❌ | ❌ | ❌ |
+| Weryfikacja serwera | odcisk klucza (pytanie przy pierwszym połączeniu, blokada przy zmianie) | — | certyfikat TLS | certyfikat TLS |
+
+Co to oznacza w praktyce:
+- **Usuwanie na serwerze nie jest Koszem.** Aplikacja pyta osobno i pokazuje serwer, folder i liczbę elementów; może być nieodwracalne.
+- **Nic nie jest nadpisywane domyślnie.** Konflikt: pomiń / zachowaj obie / zastąp (zastąp na serwerze nadpisuje plik bez Kosza — dialog to mówi). Zastąpienie *folderu* na serwerze jest zablokowane.
+- Wysyłanie idzie przez nazwę tymczasową `.opencommander-tmp-…` i zmianę nazwy po sprawdzeniu rozmiaru; przerwany lub anulowany transfer nie zostawia pliku, który wyglądałby na kompletny. **Ponów** (przy nieudanej operacji) zaczyna dany element od początku — niczego nie ponawiamy automatycznie.
+- Źródło lokalne nie jest usuwane po wysłaniu. Dowiązania symboliczne na serwerze nie są rozwijane ani kopiowane.
+- Nazwy plików z serwera są niezaufane: nazwy ze `/`, `..` albo znakami sterującymi są odrzucane (ochrona przed path traversal i wstrzykiwaniem poleceń FTP).
+
+### Sekrety i zaufanie
+- **Hasła i hasła do kluczy trafiają wyłącznie do Keychain** (rodzaj „generic password”, `ThisDeviceOnly`, bez synchronizacji iCloud). Profil połączeń (UserDefaults, JSON) zawiera tylko konfigurację i anonimowy identyfikator sekretu — nigdy hasło, passphrase ani zawartość klucza (dla klucza prywatnego zapisujemy tylko ścieżkę do pliku).
+- Odznacz „Zapamiętaj hasło w Keychain”, a hasło będzie żyło tylko w pamięci do rozłączenia lub zamknięcia aplikacji.
+- Usuwając profil, wybierasz, czy usunąć też jego sekrety z Keychain; sekret używany przez inny profil nigdy nie jest usuwany.
+- Błędy i komunikaty przechodzą przez maskowanie (hasła, tokeny, nagłówki Authorization/Cookie, adresy z danymi logowania, bloki kluczy PEM). Aplikacja niczego nie loguje na dysk.
+- **SFTP:** przy pierwszym połączeniu widzisz host, port, typ klucza i odcisk SHA256; zaufanie jest zapisywane dopiero po Twojej zgodzie. **Zmieniony klucz blokuje połączenie bez pytania.** Lista zaufanych serwerów (podgląd/usuwanie): *Połączenia → Zaufane serwery SSH*. To własny plik aplikacji, **nie** pełna obsługa `~/.ssh/known_hosts` (bez zahaszowanych nazw, wzorców, certyfikatów i `@revoked`).
+- **FTPS:** brak „akceptuj wszystko” — niezaufany lub niepasujący certyfikat kończy połączenie, a serwer bez TLS nigdy nie powoduje cichego przejścia na zwykłe FTP (hasło nie jest wtedy wysyłane). **WebDAV:** bez przekierowań na inny host, bez obniżania HTTPS→HTTP, poświadczenia tylko do hosta z adresu bazowego.
+
+### Ograniczenia połączeń
+- Transfery nie są wznawiane; SFTP przesyła dane sekwencyjnie po 32 KiB, więc przy dużym opóźnieniu jest wolniejszy niż klient OpenSSH.
+- SFTP: biblioteka Citadel czyta klucze Ed25519 i RSA w formacie OpenSSH (nie ECDSA, nie starszy format PEM); korzysta z forka `swift-nio-ssh` (zob. [ARCHITECTURE.md](ARCHITECTURE.md)).
+- FTP: bez MLSD czasy z `LIST` są przybliżone (brak roku w starszych wpisach), a nietypowe formaty list są pomijane i liczone, nie zgadywane. Jedno połączenie, operacje szeregowo. Kodowanie nazw: UTF-8.
+- WebDAV: bez blokad (LOCK) i PROPPATCH; przy Digest treść PUT może zostać wysłana dwukrotnie (po wyzwaniu serwera). Plików ze zdalnego panelu nie otwiera się bezpośrednio — skopiuj je na dysk.
+- Pliki zdalne nie mają Quick Look, „Pokaż w Finderze” ani ulubionych; zbiorcza zmiana nazw, porównanie i duplikaty działają tylko lokalnie.
+- Zdalny listing odświeża się ręcznie (⌘R) i po własnych operacjach — nie ma obserwatora zmian na serwerze.
+- macOS może zapytać o dostęp do sieci lokalnej przy łączeniu z urządzeniami w LAN.
+- Jeśli serwer zerwie połączenie, następna akcja łączy ponownie (z pytaniem o hasło, gdy nie jest zapisane); przerwane operacje trzeba ponowić ręcznie.
+
+### Testy z serwerami (bezpiecznie)
+Testy automatyczne łączą się **wyłącznie z serwerami uruchamianymi w procesie testowym na 127.0.0.1** (katalogi tymczasowe, certyfikaty generowane na czas testu) — nigdy z serwerami publicznymi ani Twoimi. `swift test` pokrywa: SFTP (hasło, nieznany/zmieniony klucz hosta, zerwanie, anulowanie, Unicode), WebDAV (odpowiedzi 207, przestrzenie nazw, prefiks ścieżki, przekierowania, uwierzytelnianie, nieprawidłowy certyfikat), FTP (MLSD/LIST, tryb pasywny, zerwanie) i FTPS jawny/niejawny (weryfikacja certyfikatu i hosta, brak obniżania). Testy FTPS jawnego używają `python3` i `openssl` z systemu (pomijane, gdy ich brak).
+Do ręcznego sprawdzenia interfejsu możesz uruchomić lokalny serwer SFTP testowy: `OC_SERVE_SECONDS=300 swift test --filter SFTPIntegrationTests/testServeForManualUI` (nasłuch `127.0.0.1:2222`, użytkownik `ola`, hasło z `TestSFTPServer`), a w aplikacji — **kopii z innym identyfikatorem pakietu** (zob. [CLAUDE.md](CLAUDE.md)) — dodać profil SFTP na ten adres.
+
+### Biblioteki i licencje
+| Komponent | Do czego | Licencja |
+|---|---|---|
+| [Citadel](https://github.com/orlandos-nl/Citadel) 0.12.1 | SFTP/SSH | MIT |
+| [swift-nio-ssh](https://github.com/Wellz26/swift-nio-ssh) 0.3.7 (fork używany przez Citadel) | SSH | Apache-2.0 |
+| swift-nio, swift-log, swift-crypto, swift-asn1, swift-atomics, swift-collections, swift-system (Apple) | zależności tranzytywne | Apache-2.0 |
+| [BigInt](https://github.com/attaswift/BigInt) 5.7.0 | zależność tranzytywna | MIT |
+| libcurl (systemowa, `libcurl.4.dylib`) | FTP/FTPS (TLS przez SecureTransport) | licencja curl — biblioteka systemu, nie jest dołączana do aplikacji |
+| `URLSession`, `XMLParser`, Keychain, Network.framework | WebDAV, XML, sekrety | część macOS |
+
+Wersje są przypięte w `Package.swift` (Citadel `exact`) i `Package.resolved`. SSH, TLS i kryptografia nie są implementowane we własnym zakresie.
+
 ## Bezpieczeństwo danych
-- Nic nie jest nadpisywane domyślnie; usuwanie z poziomu UI to zawsze Kosz.
+- Nic nie jest nadpisywane domyślnie; usuwanie lokalne z poziomu UI to zawsze Kosz (na serwerze: osobne, jawne potwierdzenie — zob. wyżej).
 - Przy przenoszeniu między woluminami źródło jest usuwane dopiero po udanej kopii; kopiowanie folderu do samego siebie jest blokowane; dowiązania symboliczne są kopiowane jako dowiązania.
 - Pliki tymczasowe są rejestrowane w dzienniku — po przerwanej sesji niedokończone kopie są sprzątane, a elementy przerwane w trakcie przenoszenia **przywracane**, nie kasowane.
 - Rozmiary folderów i skróty zawartości są liczone tylko po akcji użytkownika; listowanie nie czyta zawartości plików.
@@ -94,7 +151,7 @@ Klawisze F wymagają Fn albo włączonej opcji „Używaj klawiszy F1, F2 itd. j
 - Plan prac i to, czego jeszcze nie ma: [ROADMAP.md](ROADMAP.md).
 
 ## Współtworzenie
-Zob. [CONTRIBUTING.md](CONTRIBUTING.md). Logika plikowa musi mieć testy na katalogach tymczasowych; funkcje sieciowe są poza zakresem.
+Zob. [CONTRIBUTING.md](CONTRIBUTING.md). Logika plikowa musi mieć testy na katalogach tymczasowych; testy sieciowe tylko na serwerach lokalnych w procesie testowym.
 
 ## Licencja i autorstwo
 MIT — zob. [LICENSE](LICENSE). Ikona aplikacji: [Tools/icon](Tools/icon/README.md) (zaprojektowana z użyciem skilla [logo-design](https://github.com/kaankiziltug/logo-design-skill), MIT).

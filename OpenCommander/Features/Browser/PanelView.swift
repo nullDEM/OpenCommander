@@ -95,7 +95,7 @@ struct PanelView: View {
                 Button { panel.goUp() } label: { Image(systemName: "arrow.up") }
                     .disabled(!panel.canGoUp).help("Folder nadrzędny (⌘↑)").accessibilityLabel("Folder nadrzędny")
             }
-            BreadcrumbBar(url: panel.location, onSelect: { panel.navigate(to: $0) })
+            BreadcrumbBar(url: panel.location, serverName: state.serverName(of: panel.location), onSelect: { panel.navigate(to: $0) })
                 .padding(.horizontal, 8).padding(.vertical, 4)
                 .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(isActive ? 0.09 : 0.05)))
             if panel.isLoading { ProgressView().controlSize(.small).accessibilityLabel("Ładowanie") }
@@ -192,7 +192,7 @@ struct PanelView: View {
             state.active = panel.side
             state.open(panel.visibleEntries.filter { ids.contains($0.id) }, in: panel)
         }
-        .quickLookPreview($quickLookURL, in: panel.selectedEntries.map(\.url))
+        .quickLookPreview($quickLookURL, in: panel.isRemote ? [] : panel.selectedEntries.map(\.url))
         .alternatingRowBackgrounds(.disabled)
         .focused(focus, equals: panel.side)
         .onKeyPress(phases: .down) { press in
@@ -214,7 +214,7 @@ struct PanelView: View {
         }
         .onKeyPress(.space) {
             // Spacja: szybki podgląd zaznaczonego elementu (system zamyka go tą samą Spacją).
-            guard let first = panel.selectedEntries.first else { return .ignored }
+            guard !panel.isRemote, let first = panel.selectedEntries.first else { return .ignored }
             quickLookURL = first.url
             return .handled
         }
@@ -249,7 +249,7 @@ struct PanelView: View {
             Button(state.showHidden ? "Ukryj pliki ukryte" : "Pokaż pliki ukryte") { state.setShowHidden(!state.showHidden) }
         } else {
             Button("Otwórz") { state.select(ids, in: panel); state.open(entries, in: panel) }
-            if entries.count == 1, !entries[0].isNavigable {
+            if !panel.isRemote, entries.count == 1, !entries[0].isNavigable {
                 let apps = state.applications(toOpen: entries[0].url)
                 if !apps.isEmpty {
                     Menu("Otwórz za pomocą") {
@@ -259,26 +259,33 @@ struct PanelView: View {
                     }
                 }
             }
-            Button("Szybki podgląd") { state.select(ids, in: panel); quickLookURL = entries.first?.url }
-            Divider()
-            Button("Pokaż w Finderze") { NSWorkspace.shared.activateFileViewerSelecting(entries.map(\.url)) }
+            if !panel.isRemote {
+                Button("Szybki podgląd") { state.select(ids, in: panel); quickLookURL = entries.first?.url }
+                Divider()
+                Button("Pokaż w Finderze") { NSWorkspace.shared.activateFileViewerSelecting(entries.map(\.url)) }
+            } else {
+                Divider()
+            }
             Button("Kopiuj ścieżkę") { state.select(ids, in: panel); state.copyPathToPasteboard() }
             Button("Informacje") { state.select(ids, in: panel); state.showInspector = true }
             if entries.count == 1, entries[0].isNavigable {
                 Button("Otwórz w nowej karcie") { state.select(ids, in: panel); state.openInNewTab(entries[0].url) }
-                if state.isFavorite(entries[0].url) {
+                if panel.isRemote {
+                    EmptyView()
+                } else if state.isFavorite(entries[0].url) {
                     Button("Usuń z ulubionych") { state.removeFavorite(entries[0].url) }
                 } else {
                     Button("Dodaj do ulubionych") { state.addFavorite(entries[0].url) }
                 }
             }
             Divider()
-            Button("Kopiuj do drugiego panelu") { state.select(ids, in: panel); state.transferSelection(.copy) }
+            Button(panel.isRemote ? "Pobierz do drugiego panelu" : (state.panel(panel.side.other).isRemote ? "Wyślij na serwer (drugi panel)" : "Kopiuj do drugiego panelu")) { state.select(ids, in: panel); state.transferSelection(.copy) }
+                .disabled(!state.canCopy)
             Button("Przenieś do drugiego panelu") { state.select(ids, in: panel); state.transferSelection(.move) }
-                .disabled(panel.location == state.panel(panel.side.other).location)
+                .disabled(state.anyPanelRemote || panel.location == state.panel(panel.side.other).location)
             if entries.count == 1 { Button("Zmień nazwę…") { state.select(ids, in: panel); state.requestRename() } }
             Divider()
-            Button("Przenieś do Kosza", role: .destructive) { state.select(ids, in: panel); state.requestTrash() }
+            Button(panel.isRemote ? "Usuń z serwera…" : "Przenieś do Kosza", role: .destructive) { state.select(ids, in: panel); state.requestTrash() }
         }
     }
 
@@ -396,10 +403,23 @@ enum IconCache {
 /// Klikalne okruszki ścieżki (dla woluminów zewnętrznych korzeniem jest sam wolumin).
 struct BreadcrumbBar: View {
     let url: URL
+    var serverName: String?
     let onSelect: (URL) -> Void
 
+    private var items: [Breadcrumb] {
+        guard let r = url.remoteLocation else { return Breadcrumbs.items(for: url) }
+        // Serwer zdalny: korzeń to nazwa połączenia, dalej składowe ścieżki zdalnej.
+        var out = [Breadcrumb(title: serverName ?? "Serwer", url: RemoteLocation(connectionID: r.connectionID, path: .root).url)]
+        var path = RemotePath.root
+        for c in r.path.components {
+            path = (try? path.appending(c)) ?? path
+            out.append(Breadcrumb(title: c, url: RemoteLocation(connectionID: r.connectionID, path: path).url))
+        }
+        return out
+    }
+
     var body: some View {
-        let items = Breadcrumbs.items(for: url)
+        let items = self.items
         // Przewijany widok bez żadnego sprzężenia rozmiaru z kontenerem (GeometryReader + minWidth powodował
         // lawinę przeliczeń układu w podzielonym widoku). Krótka ścieżka stoi od lewej; długa jest przewijana
         // do końca jawnie — przy pojawieniu się, zmianie folderu i zmianie szerokości (pomiar tylko w tle).
@@ -415,7 +435,7 @@ struct BreadcrumbBar: View {
                 )
         }
         .frame(height: 18)
-        .accessibilityLabel("Ścieżka: \(url.path)")
+        .accessibilityLabel("Ścieżka: \(url.remoteLocation?.path.string ?? url.path)")
     }
 
     private static let endMarker = "breadcrumb-end"
@@ -438,7 +458,7 @@ struct BreadcrumbBar: View {
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)
-                .help(item.url.path)
+                .help(item.url.remoteLocation?.path.string ?? item.url.path)
             }
             // Niewidoczny znacznik końca — cel przewijania (osobny identyfikator, bez kolizji z ForEach).
             Color.clear.frame(width: 1, height: 1).id(Self.endMarker)

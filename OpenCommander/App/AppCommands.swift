@@ -39,6 +39,21 @@ struct AppCommands: Commands {
             Button("Zamknij kartę") { state.closeActiveTabOrWindow() }
                 .keyboardShortcut("w", modifiers: .command)
         }
+        CommandMenu("Połączenia") {
+            Button("Menedżer połączeń…") { state.sheet = .connections }
+                .keyboardShortcut("k", modifiers: [.command, .option])
+                .disabled(state.isBusyWithDialog)
+            Button("Nowe połączenie…") { state.sheet = .editConnection(nil) }
+                .disabled(state.isBusyWithDialog)
+            if !state.connections.profiles.isEmpty {
+                Divider()
+                ForEach(state.connections.profiles) { p in
+                    Button("Połącz z „\(p.name)”") { state.openConnection(p.id) }.disabled(state.isBusyWithDialog)
+                }
+            }
+            Divider()
+            Button("Zaufane serwery SSH…") { state.sheet = .trustedHosts }.disabled(state.isBusyWithDialog)
+        }
         CommandMenu("Karty") {
             Button("Nowa karta") { state.newTab() }
                 .keyboardShortcut("t", modifiers: .command)

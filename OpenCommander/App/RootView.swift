@@ -44,11 +44,18 @@ struct RootView: View {
                 CompareSheet(state: state)
             case .duplicates(let root):
                 DuplicatesSheet(root: root, state: state)
+            case .connections:
+                ConnectionsManagerSheet(state: state)
+            case .editConnection(let profile):
+                ConnectionFormSheet(state: state, existing: profile)
+            case .trustedHosts:
+                TrustedHostsSheet(state: state)
             case .rename(let entry):
                 NameSheet(title: "Zmień nazwę", message: "Nowa nazwa dla „\(entry.name)”.",
                           initial: entry.name, confirmTitle: "Zmień") { await state.rename(entry, to: $0) }
             }
         }
+        .connectionPrompts(state, topLevel: true)
         .sheet(item: Binding(get: { state.operations.pendingConflict }, set: { _ in })) { pending in
             ConflictSheet(pending: pending, operations: state.operations)
         }
@@ -59,9 +66,23 @@ struct RootView: View {
         } message: {
             Text("Elementy trafią do Kosza i będzie można je stamtąd przywrócić (Kosz systemu nie jest opróżniany przez aplikację).")
         }
+        .confirmationDialog(remoteDeleteTitle, isPresented: Binding(get: { state.pendingRemoteDelete != nil }, set: { if !$0 { state.pendingRemoteDelete = nil } }),
+                            titleVisibility: .visible) {
+            Button("Usuń z serwera", role: .destructive) { state.confirmRemoteDelete() }
+            Button("Anuluj", role: .cancel) { state.pendingRemoteDelete = nil }
+        } message: {
+            if let r = state.pendingRemoteDelete {
+                Text("Serwer: \(r.serverName)\nFolder: \(r.path)\nElementy: \(Polish.items(r.entries.count))\n\nTo NIE jest Kosz — usunięcie na serwerze może być nieodwracalne. Foldery są usuwane razem z zawartością.")
+            }
+        }
         .alert("Błąd", isPresented: Binding(get: { state.alertMessage != nil }, set: { if !$0 { state.alertMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(state.alertMessage ?? "") }
+    }
+
+    private var remoteDeleteTitle: String {
+        guard let r = state.pendingRemoteDelete else { return "" }
+        return r.entries.count == 1 ? "Trwale usunąć „\(r.entries[0].name)” z serwera?" : "Trwale usunąć \(Polish.items(r.entries.count)) z serwera?"
     }
 
     private var trashTitle: String {
@@ -86,8 +107,8 @@ struct RootView: View {
             Button { state.transferSelection(.move) } label: { Label("Przenieś do drugiego panelu", systemImage: "arrow.right.doc.on.clipboard") }
                 .help("Przenieś do drugiego panelu (F6)")
                 .disabled(!state.canMove)
-            Button { state.requestTrash() } label: { Label("Przenieś do Kosza", systemImage: "trash") }
-                .help("Przenieś do Kosza (⌘⌫)")
+            Button { state.requestTrash() } label: { Label(state.activePanel.isRemote ? "Usuń z serwera" : "Przenieś do Kosza", systemImage: "trash") }
+                .help(state.activePanel.isRemote ? "Usuń z serwera (⌘⌫) — nie trafia do Kosza" : "Przenieś do Kosza (⌘⌫)")
                 .disabled(state.activePanel.selection.isEmpty)
         }
         ToolbarItemGroup {

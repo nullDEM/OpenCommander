@@ -2,6 +2,8 @@ import Foundation
 
 public enum OperationKind: String, Sendable {
     case copy, move, trash
+    /// Trwałe usunięcie NA SERWERZE (bez Kosza, zwykle nieodwracalne). Dotyczy wyłącznie zasobów zdalnych.
+    case delete
 }
 
 public struct FileOperation: Identifiable, Sendable {
@@ -18,6 +20,9 @@ public struct FileOperation: Identifiable, Sendable {
         self.destination = destination
     }
 
+    /// Czy operacja dotyczy zasobów zdalnych (źródło lub cel ma adres `ocremote://`).
+    public var involvesRemote: Bool { sources.contains(where: \.isRemoteLocation) || (destination?.isRemoteLocation ?? false) }
+
     public var title: String {
         let n = Polish.items(sources.count)
         let dest = destination?.lastPathComponent ?? ""
@@ -25,6 +30,7 @@ public struct FileOperation: Identifiable, Sendable {
         case .copy: return "Kopiowanie: \(n) → „\(dest)”"
         case .move: return "Przenoszenie: \(n) → „\(dest)”"
         case .trash: return "Przenoszenie do Kosza: \(n)"
+        case .delete: return "Usuwanie na serwerze: \(n)"
         }
     }
 }

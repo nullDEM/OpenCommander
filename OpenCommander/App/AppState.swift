@@ -1,6 +1,7 @@
 import AppKit
 import Observation
 import OpenCommanderCore
+import OpenCommanderRemote
 
 enum ActiveSheet: Identifiable {
     case newFolder
@@ -9,6 +10,9 @@ enum ActiveSheet: Identifiable {
     case batchRename([FileEntry])
     case compareFolders
     case duplicates(URL)
+    case connections
+    case editConnection(ConnectionProfile?)
+    case trustedHosts
 
     var id: String {
         switch self {
@@ -16,10 +20,44 @@ enum ActiveSheet: Identifiable {
         case .batchRename: return "batchRename"
         case .compareFolders: return "compare"
         case .duplicates(let u): return "dups-\(u.path)"
+        case .connections: return "connections"
+        case .editConnection(let p): return "edit-\(p?.id.uuidString ?? "new")"
+        case .trustedHosts: return "trustedHosts"
         case .newFolder: return "newFolder"
         case .rename(let e): return "rename-\(e.id)"
         }
     }
+}
+
+/// Pytanie o zaufanie do klucza serwera (czeka na decyzję użytkownika).
+@MainActor @Observable
+final class HostKeyRequest: Identifiable {
+    let id = UUID()
+    let info: HostKeyInfo
+    @ObservationIgnored private var continuation: CheckedContinuation<Bool, Never>?
+    init(info: HostKeyInfo, continuation: CheckedContinuation<Bool, Never>) { self.info = info; self.continuation = continuation }
+    func answer(_ trust: Bool) { continuation?.resume(returning: trust); continuation = nil }
+}
+
+/// Pytanie o hasło lub passphrase (nie jest zapisane); odpowiedź żyje tylko na czas sesji.
+@MainActor @Observable
+final class CredentialRequest: Identifiable {
+    let id = UUID()
+    let profile: ConnectionProfile
+    let kind: CredentialKind
+    @ObservationIgnored private var continuation: CheckedContinuation<String?, Never>?
+    init(profile: ConnectionProfile, kind: CredentialKind, continuation: CheckedContinuation<String?, Never>) {
+        self.profile = profile; self.kind = kind; self.continuation = continuation
+    }
+    func answer(_ value: String?) { continuation?.resume(returning: value); continuation = nil }
+}
+
+/// Zdalne usuwanie czeka na potwierdzenie: serwer, ścieżka, liczba elementów.
+struct RemoteDeleteRequest: Identifiable {
+    let id = UUID()
+    let entries: [FileEntry]
+    let serverName: String
+    let path: String
 }
 
 @MainActor @Observable
@@ -27,6 +65,10 @@ final class AppState {
     let tabsLeft: PanelTabs
     let tabsRight: PanelTabs
     let operations: OperationCenter
+    let connections: ConnectionManager
+    var hostKeyRequest: HostKeyRequest?
+    var credentialRequest: CredentialRequest?
+    var pendingRemoteDelete: RemoteDeleteRequest?
     @ObservationIgnored private let journal = TempJournal.default
 
     var active: PanelSide = .left
@@ -51,7 +93,11 @@ final class AppState {
 
     init() {
         let s = store.load()
-        operations = OperationCenter(journal: journal)
+        let connections = ConnectionManager()
+        RemoteModule.install(in: connections)
+        self.connections = connections
+        operations = OperationCenter(journal: journal, remote: RemoteTransferEngine(
+            providerFor: { id in try await connections.provider(for: id) }, journal: journal))
         showHidden = s.showHidden
         operationsExpanded = s.operationsExpanded
         favorites = s.favorites.map(Self.normalized)
@@ -69,6 +115,7 @@ final class AppState {
                                    location: Locations.nearestExistingDirectory(URL(fileURLWithPath: settings.path)),
                                    sortKey: settings.sortKey, sortAscending: settings.sortAscending,
                                    showHidden: box.value?.showHidden ?? initialHidden)
+                p.remoteLister = { loc in try await connections.listing(loc) }
                 p.onStateChange = { [weak box, weak p] in if let p, let state = box?.value { state.panelChanged(p) } }
                 return p
             }
@@ -78,6 +125,8 @@ final class AppState {
         tabsRight = PanelTabs(side: .right, settings: s.rightTabs.isEmpty ? [s.right] : s.rightTabs,
                               activeIndex: s.rightActiveTab, factory: factory(.right))
         box.value = self
+        connections.hostKeyPrompt = { [weak self] info in await self?.askHostKey(info) ?? false }
+        connections.credentialPrompt = { [weak self] profile, kind in await self?.askCredential(profile, kind) }
         operations.onJobFinished = { [weak self] job in self?.jobFinished(job) }
         reportLeftovers(journal.sweep())
 
@@ -102,6 +151,55 @@ final class AppState {
         alertMessage = lines.joined(separator: "\n")
     }
 
+    // MARK: - Połączenia zdalne
+
+    /// Pytania są kolejkowane: kolejne czeka, aż poprzednie zostanie rozstrzygnięte.
+    private func askHostKey(_ info: HostKeyInfo) async -> Bool {
+        while hostKeyRequest != nil { try? await Task.sleep(nanoseconds: 100_000_000) }
+        return await withCheckedContinuation { cont in hostKeyRequest = HostKeyRequest(info: info, continuation: cont) }
+    }
+
+    private func askCredential(_ profile: ConnectionProfile, _ kind: CredentialKind) async -> String? {
+        while credentialRequest != nil { try? await Task.sleep(nanoseconds: 100_000_000) }
+        return await withCheckedContinuation { cont in credentialRequest = CredentialRequest(profile: profile, kind: kind, continuation: cont) }
+    }
+
+    /// Łączy (jeśli trzeba) i otwiera katalog początkowy serwera w aktywnym panelu.
+    func openConnection(_ id: UUID) {
+        let panel = activePanel
+        Task {
+            do {
+                let loc = try await connections.initialLocation(for: id)
+                panel.navigate(to: loc.url)
+            } catch let e as NetworkError where e == .cancelled || e == .hostKeyRejected {
+                return
+            } catch {
+                alertMessage = ConnectionManager.networkError(error, secrets: []).localizedDescription
+            }
+        }
+    }
+
+    func disconnect(_ id: UUID) {
+        Task {
+            await connections.disconnect(id)
+            // Panele pokazujące rozłączony serwer wracają do katalogu domowego (lista z serwera przestała być aktualna).
+            for panel in allTabs where panel.location.remoteLocation?.connectionID == id { panel.navigate(to: Locations.home) }
+        }
+    }
+
+    func removeConnection(_ id: UUID, deleteSecrets: Bool) {
+        Task {
+            for panel in allTabs where panel.location.remoteLocation?.connectionID == id { panel.navigate(to: Locations.home) }
+            await connections.remove(id, deleteSecrets: deleteSecrets)
+        }
+    }
+
+    func serverName(of url: URL) -> String? {
+        url.remoteLocation.flatMap { connections.profile($0.connectionID)?.name }
+    }
+
+    var anyPanelRemote: Bool { left.isRemote || right.isRemote }
+
     // MARK: - Pomocnicze
 
     func tabs(_ side: PanelSide) -> PanelTabs { side == .left ? tabsLeft : tabsRight }
@@ -112,13 +210,16 @@ final class AppState {
     var activeTabs: PanelTabs { tabs(active) }
     var activePanel: PanelState { panel(active) }
     var otherPanel: PanelState { panel(active.other) }
-    var isBusyWithDialog: Bool { sheet != nil || !pendingTrash.isEmpty || operations.pendingConflict != nil }
+    var isBusyWithDialog: Bool {
+        sheet != nil || !pendingTrash.isEmpty || operations.pendingConflict != nil
+            || hostKeyRequest != nil || credentialRequest != nil || pendingRemoteDelete != nil
+    }
 
     func switchPanel() { active = active.other }
 
     func persist() {
         func ps(_ p: PanelState) -> PanelSettings {
-            PanelSettings(path: p.location.path, sortKey: p.sortKey, sortAscending: p.sortAscending)
+            PanelSettings(path: p.location.isFileURL ? p.location.path : NSHomeDirectory(), sortKey: p.sortKey, sortAscending: p.sortAscending)
         }
         store.save(AppSettings(left: ps(left), right: ps(right), showHidden: showHidden,
                                activePanel: active, operationsExpanded: operationsExpanded,
@@ -160,7 +261,11 @@ final class AppState {
     }
 
     func tabTitle(_ p: PanelState) -> String {
-        p.location.path == "/" ? Locations.rootVolumeName() : p.location.lastPathComponent
+        if let r = p.location.remoteLocation {
+            let server = connections.profile(r.connectionID)?.name ?? "serwer"
+            return r.path.isRoot ? server : "\(server): \(r.path.lastComponent ?? "")"
+        }
+        return p.location.path == "/" ? Locations.rootVolumeName() : p.location.lastPathComponent
     }
 
     // MARK: - Przestrzenie robocze
@@ -189,6 +294,7 @@ final class AppState {
     /// Zapamiętuje ostatnie lokalizacje (tylko faktyczne zmiany folderu) i zapisuje ustawienia.
     private func panelChanged(_ panel: PanelState) {
         let path = panel.location.path
+        if panel.isRemote { persist(); return }
         if lastRecorded[panel.side] != path {
             lastRecorded[panel.side] = path
             recents = LocationHistory.promoting(path, in: recents.map(\.path)).map(Self.normalized)
@@ -214,6 +320,7 @@ final class AppState {
     }
 
     func toggleFavoriteForActivePanel() {
+        guard !activePanel.isRemote else { return }
         let url = activePanel.location
         if isFavorite(url) { removeFavorite(url) } else { addFavorite(url) }
     }
@@ -256,6 +363,12 @@ final class AppState {
             panel.navigate(to: e.url)
             return
         }
+        if panel.isRemote {
+            if entries.contains(where: { !$0.isNavigable }) {
+                alertMessage = "Plików z serwera nie otwiera się bezpośrednio. Skopiuj je do drugiego panelu (F5), a potem otwórz lokalnie."
+            }
+            return
+        }
         for e in entries where !e.isNavigable { NSWorkspace.shared.open(e.url) }
     }
 
@@ -277,12 +390,14 @@ final class AppState {
     }
 
     func revealInFinder() {
+        guard !activePanel.isRemote else { return }
         let urls = activePanel.selectedEntries.map(\.url)
         if urls.isEmpty { NSWorkspace.shared.open(activePanel.location) } else { NSWorkspace.shared.activateFileViewerSelecting(urls) }
     }
 
     /// Schowek plików: zapisuje zaznaczone elementy jako adresy plików (Finder też je wklei).
     func copyFilesToClipboard() {
+        guard !activePanel.isRemote else { return }
         let urls = activePanel.selectedEntries.map(\.url)
         guard !urls.isEmpty else { return }
         NSPasteboard.general.clearContents()
@@ -306,8 +421,9 @@ final class AppState {
     var textFieldHasFocus: Bool { NSApp.keyWindow?.firstResponder is NSText }
 
     func copyPathToPasteboard() {
-        let paths = activePanel.selectedEntries.map(\.url.path)
-        let text = paths.isEmpty ? activePanel.location.path : paths.joined(separator: "\n")
+        let paths = activePanel.selectedEntries.map { $0.url.remoteLocation?.path.string ?? $0.url.path }
+        let here = activePanel.location.remoteLocation?.path.string ?? activePanel.location.path
+        let text = paths.isEmpty ? here : paths.joined(separator: "\n")
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
@@ -316,7 +432,8 @@ final class AppState {
 
     /// Wolumin wysuwalny, na którym leży folder aktywnego panelu.
     var ejectableVolumeOfActivePanel: VolumeInfo? {
-        VolumeEjector.volume(containing: activePanel.location, in: volumes).flatMap { $0.canEject ? $0 : nil }
+        guard !activePanel.isRemote else { return nil }
+        return VolumeEjector.volume(containing: activePanel.location, in: volumes).flatMap { $0.canEject ? $0 : nil }
     }
 
     func ejectActivePanelVolume() {
@@ -354,18 +471,32 @@ final class AppState {
     // MARK: - Operacje
 
     /// Kopiowanie do tego samego folderu jest dozwolone (powstaje „… kopia”); przeniesienie — nie ma sensu.
-    var canCopy: Bool { !activePanel.selection.isEmpty }
-    var canMove: Bool { !activePanel.selection.isEmpty && activePanel.location != otherPanel.location }
+    /// Kopiowanie: lokalne ↔ zdalne (upload/pobieranie). Serwer → serwer nie jest obsługiwany.
+    var canCopy: Bool { !activePanel.selection.isEmpty && !(activePanel.isRemote && otherPanel.isRemote) }
+    /// Przenoszenie tylko lokalnie — między lokalnym a zdalnym wyłącznie kopiowanie (żadne źródło nie jest usuwane).
+    var canMove: Bool { !activePanel.selection.isEmpty && !anyPanelRemote && activePanel.location != otherPanel.location }
 
     func transferSelection(_ kind: OperationKind) {
         let sources = activePanel.selectedEntries.map(\.url)
-        guard !sources.isEmpty, kind == .copy || canMove else { return }
+        guard !sources.isEmpty, kind == .copy ? canCopy : canMove else { return }
         operations.enqueue(FileOperation(kind: kind, sources: sources, destination: otherPanel.location))
         operationsExpanded = true
     }
 
     /// Upuszczenie elementów na panel (z drugiego panelu lub z Findera). Nic nie jest nadpisywane — konflikty obsługuje silnik.
     func handleDrop(_ urls: [URL], onto panel: PanelState, optionHeld: Bool) {
+        if panel.isRemote || urls.contains(where: { !$0.isFileURL }) {
+            // Z udziałem serwera wyłącznie kopia; serwer → serwer odrzuca silnik z czytelnym komunikatem.
+            let sources = urls.filter { $0 != panel.location && $0.deletingLastPathComponent() != panel.location }
+            guard !sources.isEmpty else { return }
+            if panel.isRemote && sources.contains(where: { !$0.isFileURL }) {
+                alertMessage = "Kopiowanie bezpośrednio między serwerami nie jest obsługiwane. Pobierz pliki na dysk, a potem wyślij."
+                return
+            }
+            operations.enqueue(FileOperation(kind: .copy, sources: sources, destination: panel.location))
+            operationsExpanded = true
+            return
+        }
         let sources = DropPlanner.effectiveSources(urls, destination: panel.location)
         guard !sources.isEmpty else { return }
         let kind = DropPlanner.kind(sources: sources, destination: panel.location, optionHeld: optionHeld)
@@ -375,7 +506,22 @@ final class AppState {
 
     func requestTrash() {
         let entries = activePanel.selectedEntries
-        if !entries.isEmpty { pendingTrash = entries }
+        guard !entries.isEmpty else { return }
+        if let loc = activePanel.location.remoteLocation {
+            // Na serwerze nie ma Kosza aplikacji — usunięcie może być nieodwracalne, więc pytamy osobno i jasno.
+            pendingRemoteDelete = RemoteDeleteRequest(entries: entries,
+                                                      serverName: connections.profile(loc.connectionID)?.name ?? "serwer",
+                                                      path: loc.path.string)
+        } else {
+            pendingTrash = entries
+        }
+    }
+
+    func confirmRemoteDelete() {
+        guard let req = pendingRemoteDelete else { return }
+        pendingRemoteDelete = nil
+        operations.enqueue(FileOperation(kind: .delete, sources: req.entries.map(\.url)))
+        operationsExpanded = true
     }
 
     func confirmTrash() {
@@ -391,11 +537,12 @@ final class AppState {
     // MARK: - Narzędzia (etap 3)
 
     func requestBatchRename() {
+        guard !activePanel.isRemote else { return }
         let entries = activePanel.selectedEntries
         if !entries.isEmpty { sheet = .batchRename(entries) }
     }
-    func requestCompare() { sheet = .compareFolders }
-    func requestDuplicates() { sheet = .duplicates(activePanel.location) }
+    func requestCompare() { if !anyPanelRemote { sheet = .compareFolders } }
+    func requestDuplicates() { if !activePanel.isRemote { sheet = .duplicates(activePanel.location) } }
 
     func applyBatchRename(_ items: [BatchRenameItem]) async -> BatchRename.Outcome {
         let panel = activePanel
@@ -430,6 +577,19 @@ final class AppState {
     func createFolder(named name: String) async -> String? {
         let panel = activePanel
         let parent = panel.location
+        if let loc = parent.remoteLocation {
+            do {
+                let child = try loc.appending(name)
+                let provider = try await connections.provider(for: loc.connectionID)
+                if try await provider.stat(child.path) != nil { return OperationError.nameExists(name).localizedDescription }
+                try await provider.makeDirectory(child.path)
+                panel.reload(selecting: [child.url])
+                return nil
+            } catch {
+                connections.noteFailure(loc.connectionID, error)
+                return ConnectionManager.networkError(error, secrets: []).localizedDescription
+            }
+        }
         do {
             let url = try await Task.detached { try FileService.createFolder(named: name, in: parent) }.value
             panel.reload(selecting: [url])
@@ -441,6 +601,19 @@ final class AppState {
 
     func rename(_ entry: FileEntry, to name: String) async -> String? {
         let panel = activePanel
+        if let from = entry.url.remoteLocation {
+            do {
+                let to = try from.parent.appending(name)
+                let provider = try await connections.provider(for: from.connectionID)
+                if to.path != from.path, try await provider.stat(to.path) != nil { return OperationError.nameExists(name).localizedDescription }
+                try await provider.rename(from.path, to: to.path)
+                panel.reload(selecting: [to.url])
+                return nil
+            } catch {
+                connections.noteFailure(from.connectionID, error)
+                return ConnectionManager.networkError(error, secrets: []).localizedDescription
+            }
+        }
         do {
             let journal = self.journal
             let url = try await Task.detached { try FileService.rename(entry.url, to: name, journal: journal) }.value

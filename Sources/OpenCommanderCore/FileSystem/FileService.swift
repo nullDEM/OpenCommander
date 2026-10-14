@@ -150,7 +150,8 @@ public enum Locations {
 public struct Breadcrumb: Identifiable, Equatable, Sendable {
     public let title: String
     public let url: URL
-    public var id: String { url.path }
+    public var id: String { url.isFileURL ? url.path : url.absoluteString }
+    public init(title: String, url: URL) { self.title = title; self.url = url }
 }
 
 public enum Breadcrumbs {

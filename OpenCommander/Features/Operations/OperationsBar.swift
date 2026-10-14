@@ -68,6 +68,11 @@ private struct JobRow: View {
                 ForEach(Array(report.failures.enumerated()), id: \.offset) { _, failure in
                     Text(failure.1.localizedDescription).font(.caption).foregroundStyle(.red).textSelection(.enabled)
                 }
+                if job.state.isFinished, !report.failures.isEmpty, job.state != .cancelled {
+                    Button("Ponów nieudane od początku") { ops.retryFailed(job.id) }
+                        .font(.caption).buttonStyle(.link)
+                        .help("Ponawia tylko nieudane elementy, każdy od początku (bez wznawiania). Nic nie jest ponawiane automatycznie.")
+                }
             }
         }
     }

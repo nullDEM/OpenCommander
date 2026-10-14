@@ -12,6 +12,7 @@
 		116E58EA9F5D89C8979BADE2 /* ShortcutsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11E3F14C5548DBA1CB4BE297 /* ShortcutsView.swift */; };
 		1BE1754EDBA83615844699D0 /* CompareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE470C2F4B0EF66851C945C /* CompareSheet.swift */; };
 		1EA027DB7BAF5830FF431467 /* AppCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF69DC222746114ED8D8D05C /* AppCommands.swift */; };
+		338D8A793A157FA2CF027DF4 /* ConnectionsManagerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E034E7FBDC6BE53FC8C6C54 /* ConnectionsManagerSheet.swift */; };
 		35C9C5AB316CC6CF8E5058E5 /* OpenCommanderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E765E400F7ED150B12F186E3 /* OpenCommanderApp.swift */; };
 		4A7697AF4CA11E4B7E852075 /* InfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A58FA368EF8ED88A7F143805 /* InfoPanel.swift */; };
 		6558286D598DDA7711254274 /* Sheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E72ABF48F8165B002787B5 /* Sheets.swift */; };
@@ -19,7 +20,10 @@
 		6DC745F68BCEB7A65EA35B90 /* OpenCommanderCore in Frameworks */ = {isa = PBXBuildFile; productRef = 07BEAAC830FE4B1B6EA9CCBD /* OpenCommanderCore */; };
 		829528D9B8EAFAF248FE35FC /* TwoPaneSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA93A7EB635370A4196C2C8 /* TwoPaneSplit.swift */; };
 		8987A6DA8CA0A36119F7DD41 /* PanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C5A5D961B2860FC7B26D719 /* PanelView.swift */; };
+		935FAD8B76E4FB3A1F85A433 /* PromptSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 810221F0A8753F77DA42A2C6 /* PromptSheets.swift */; };
 		9642933DE5C5517459C16100 /* DuplicatesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D057ECEF8DB825A65DCA85A /* DuplicatesSheet.swift */; };
+		A5BD22AC809C0BDCD9167A25 /* ConnectionFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADC5AD272A2C6CF80CC80434 /* ConnectionFormSheet.swift */; };
+		A823373B5E5251C96FDB7C00 /* OpenCommanderRemote in Frameworks */ = {isa = PBXBuildFile; productRef = 9197EC6BD0ADC1DCD1194C66 /* OpenCommanderRemote */; };
 		C5E61CFA3009272B31208651 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F56BB98EBC279F8D73DB4D /* SidebarView.swift */; };
 		C7EB40E57373E9587C85BA96 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81EC1369F51296BFF9B49AD7 /* AppState.swift */; };
 		E16A9FBD1E603C144F164DA3 /* BatchRenameSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EF194664BCEAE99B9AC0F6E /* BatchRenameSheet.swift */; };
@@ -28,6 +32,7 @@
 
 /* Begin PBXFileReference section */
 		0C5A5D961B2860FC7B26D719 /* PanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelView.swift; sourceTree = "<group>"; };
+		0E034E7FBDC6BE53FC8C6C54 /* ConnectionsManagerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsManagerSheet.swift; sourceTree = "<group>"; };
 		11E3F14C5548DBA1CB4BE297 /* ShortcutsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsView.swift; sourceTree = "<group>"; };
 		19CD1B02BB66014896F36F67 /* TabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBar.swift; sourceTree = "<group>"; };
 		2CE470C2F4B0EF66851C945C /* CompareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareSheet.swift; sourceTree = "<group>"; };
@@ -37,14 +42,16 @@
 		50F56BB98EBC279F8D73DB4D /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		6D057ECEF8DB825A65DCA85A /* DuplicatesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatesSheet.swift; sourceTree = "<group>"; };
 		731A014355DC5160E63BC136 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		810221F0A8753F77DA42A2C6 /* PromptSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptSheets.swift; sourceTree = "<group>"; };
 		81EC1369F51296BFF9B49AD7 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
-		826DF54FE78FCD9FA4928F57 /* Nowyprojekt */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Nowyprojekt; path = .; sourceTree = SOURCE_ROOT; };
 		A58FA368EF8ED88A7F143805 /* InfoPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoPanel.swift; sourceTree = "<group>"; };
+		ADC5AD272A2C6CF80CC80434 /* ConnectionFormSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionFormSheet.swift; sourceTree = "<group>"; };
 		BF69DC222746114ED8D8D05C /* AppCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommands.swift; sourceTree = "<group>"; };
 		C6E72ABF48F8165B002787B5 /* Sheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sheets.swift; sourceTree = "<group>"; };
 		DC9498D2F402D0112B71691F /* OperationsBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationsBar.swift; sourceTree = "<group>"; };
 		E1DBBB265AA7750A08DA0F19 /* OpenCommander.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenCommander.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E765E400F7ED150B12F186E3 /* OpenCommanderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCommanderApp.swift; sourceTree = "<group>"; };
+		EFEF021ACC0F2E5BA9D5A237 /* OpenCommander-public */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "OpenCommander-public"; path = .; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -53,6 +60,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6DC745F68BCEB7A65EA35B90 /* OpenCommanderCore in Frameworks */,
+				A823373B5E5251C96FDB7C00 /* OpenCommanderRemote in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +100,7 @@
 			isa = PBXGroup;
 			children = (
 				3888A14150DB5FCB3802BC9D /* Browser */,
+				9CBDED61704E61C70AADB46B /* Connections */,
 				658F7C3D6357243B769C484E /* Info */,
 				DFAD65EBD51AD7FAC8222D48 /* Operations */,
 				57F781AF9D6338E50162933D /* Sidebar */,
@@ -125,6 +134,16 @@
 			path = Info;
 			sourceTree = "<group>";
 		};
+		9CBDED61704E61C70AADB46B /* Connections */ = {
+			isa = PBXGroup;
+			children = (
+				ADC5AD272A2C6CF80CC80434 /* ConnectionFormSheet.swift */,
+				0E034E7FBDC6BE53FC8C6C54 /* ConnectionsManagerSheet.swift */,
+				810221F0A8753F77DA42A2C6 /* PromptSheets.swift */,
+			);
+			path = Connections;
+			sourceTree = "<group>";
+		};
 		DFAD65EBD51AD7FAC8222D48 /* Operations */ = {
 			isa = PBXGroup;
 			children = (
@@ -137,7 +156,7 @@
 		ED82A1FB0FB1D07FB06CE8CB /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				826DF54FE78FCD9FA4928F57 /* Nowyprojekt */,
+				EFEF021ACC0F2E5BA9D5A237 /* OpenCommander-public */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -181,6 +200,7 @@
 			name = OpenCommander;
 			packageProductDependencies = (
 				07BEAAC830FE4B1B6EA9CCBD /* OpenCommanderCore */,
+				9197EC6BD0ADC1DCD1194C66 /* OpenCommanderRemote */,
 			);
 			productName = OpenCommander;
 			productReference = E1DBBB265AA7750A08DA0F19 /* OpenCommander.app */;
@@ -242,11 +262,14 @@
 				C7EB40E57373E9587C85BA96 /* AppState.swift in Sources */,
 				E16A9FBD1E603C144F164DA3 /* BatchRenameSheet.swift in Sources */,
 				1BE1754EDBA83615844699D0 /* CompareSheet.swift in Sources */,
+				A5BD22AC809C0BDCD9167A25 /* ConnectionFormSheet.swift in Sources */,
+				338D8A793A157FA2CF027DF4 /* ConnectionsManagerSheet.swift in Sources */,
 				9642933DE5C5517459C16100 /* DuplicatesSheet.swift in Sources */,
 				4A7697AF4CA11E4B7E852075 /* InfoPanel.swift in Sources */,
 				35C9C5AB316CC6CF8E5058E5 /* OpenCommanderApp.swift in Sources */,
 				0EA6DE9E4D053DD52A18FB4D /* OperationsBar.swift in Sources */,
 				8987A6DA8CA0A36119F7DD41 /* PanelView.swift in Sources */,
+				935FAD8B76E4FB3A1F85A433 /* PromptSheets.swift in Sources */,
 				095D7C4F04299E4897F657CC /* RootView.swift in Sources */,
 				6558286D598DDA7711254274 /* Sheets.swift in Sources */,
 				116E58EA9F5D89C8979BADE2 /* ShortcutsView.swift in Sources */,
@@ -454,6 +477,10 @@
 		07BEAAC830FE4B1B6EA9CCBD /* OpenCommanderCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OpenCommanderCore;
+		};
+		9197EC6BD0ADC1DCD1194C66 /* OpenCommanderRemote */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OpenCommanderRemote;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

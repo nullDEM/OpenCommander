@@ -45,8 +45,8 @@ public final class OperationCenter {
     @ObservationIgnored private var runningJobID: UUID?
     @ObservationIgnored private var conflictContinuation: CheckedContinuation<ConflictDecision, Never>?
 
-    public init(trasher: any Trashing = SystemTrasher(), journal: TempJournal? = nil) {
-        self.engine = FileOperationEngine(trasher: trasher, journal: journal)
+    public init(trasher: any Trashing = SystemTrasher(), journal: TempJournal? = nil, remote: (any RemoteOperationHandling)? = nil) {
+        self.engine = FileOperationEngine(trasher: trasher, journal: journal, remote: remote)
     }
 
     init(engine: FileOperationEngine) {
@@ -91,6 +91,18 @@ public final class OperationCenter {
             jobs[idx].lastSampleBytes = jobs[idx].progress.bytesDone
         }
         cont.resume(returning: decision)
+    }
+
+    /// Ręczne ponowienie nieudanych elementów zadania — **od początku** (bez wznawiania): każdy ponawiany element
+    /// jest przesyłany lub usuwany od nowa. Zadanie wraca do kolejki jako nowe.
+    @discardableResult
+    public func retryFailed(_ jobID: UUID) -> Bool {
+        guard let job = jobs.first(where: { $0.id == jobID }), job.state.isFinished,
+              let report = job.report else { return false }
+        let failed = report.failures.map(\.0)
+        guard !failed.isEmpty else { return false }
+        enqueue(FileOperation(kind: job.operation.kind, sources: failed, destination: job.operation.destination))
+        return true
     }
 
     public func clearFinished() {

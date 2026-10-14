@@ -15,6 +15,7 @@ struct SidebarView: View {
 
     /// Pozycja odpowiadająca aktywnemu panelowi: najdłuższy pasujący prefiks; przy remisie wygrywa wcześniejsza sekcja.
     private var currentSelection: String? {
+        if let r = state.activePanel.location.remoteLocation { return "conn:" + r.connectionID.uuidString }
         let path = state.activePanel.location.path
         let matching = candidates.filter { VolumeEjector.isInside(path, volume: $0.url.path) }
         let best = matching.map { $0.url.path.count }.max()
@@ -26,6 +27,10 @@ struct SidebarView: View {
             get: { currentSelection },
             set: { id in
                 guard let id else { return }
+                if id.hasPrefix("conn:") {
+                    if let uuid = UUID(uuidString: String(id.dropFirst("conn:".count))) { state.openConnection(uuid) }
+                    return
+                }
                 if id.hasPrefix("ws:") {
                     if let w = state.workspaces.first(where: { "ws:" + $0.id.uuidString == id }) { state.applyWorkspace(w) }
                     return
@@ -69,6 +74,33 @@ struct SidebarView: View {
                         .contextMenu { favoriteButton(url) }
                 }
             }
+            Section {
+                ForEach(state.connections.profiles) { p in
+                    let st = state.connections.state(p.id)
+                    HStack(spacing: 4) {
+                        Label(p.name, systemImage: ConnectionIcons.symbol(p)).lineLimit(1).truncationMode(.middle)
+                        Spacer(minLength: 4)
+                        Circle().fill(statusColor(st)).frame(width: 7, height: 7)
+                            .accessibilityLabel(ConnectionIcons.statusText(st))
+                    }
+                    .tag("conn:" + p.id.uuidString)
+                    .help("\(p.proto.title) · \(p.displayAddress) — \(ConnectionIcons.statusText(st))")
+                    .contextMenu {
+                        if st == .connected { Button("Rozłącz") { state.disconnect(p.id) } }
+                        else { Button("Połącz") { state.openConnection(p.id) } }
+                        Button("Edytuj…") { state.sheet = .editConnection(p) }
+                    }
+                }
+            } header: {
+                HStack {
+                    Text("Połączenia")
+                    Spacer()
+                    Button { state.sheet = .connections } label: { Image(systemName: "gearshape") }
+                        .buttonStyle(.borderless).help("Menedżer połączeń").accessibilityLabel("Menedżer połączeń")
+                    Button { state.sheet = .editConnection(nil) } label: { Image(systemName: "plus") }
+                        .buttonStyle(.borderless).help("Nowe połączenie").accessibilityLabel("Nowe połączenie")
+                }
+            }
             Section("Woluminy") {
                 ForEach(state.volumes) { volume in
                     HStack(spacing: 4) {
@@ -103,6 +135,15 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .accessibilityLabel("Pasek boczny: ulubione, miejsca, woluminy i ostatnie lokalizacje")
+    }
+
+    private func statusColor(_ s: ConnectionManager.State) -> Color {
+        switch s {
+        case .connected: return .green
+        case .connecting: return .yellow
+        case .failed: return .red
+        case .disconnected: return .secondary.opacity(0.4)
+        }
     }
 
     private func recentURL(_ id: String) -> URL? {

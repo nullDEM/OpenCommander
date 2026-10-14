@@ -12,5 +12,8 @@
 	<key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
 	<key>NSPrincipalClass</key><string>NSApplication</string>
+	<!-- WebDAV przez HTTP jest dopuszczony tylko jako jawnie wybrany, ostrzegany wariant profilu (ConnectionProfile.allowInsecure);
+	     bez tego wyjątku ATS blokowałby HTTP całkiem. Walidacja certyfikatów HTTPS pozostaje standardowa. -->
+	<key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
 </dict>
 </plist>

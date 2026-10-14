@@ -21,6 +21,8 @@ targets:
     dependencies:
       - package: OpenCommanderCore
         product: OpenCommanderCore
+      - package: OpenCommanderCore
+        product: OpenCommanderRemote
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.opencommander.OpenCommander

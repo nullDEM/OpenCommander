@@ -72,3 +72,17 @@ Utwórz folder `~/OC-test` z podfolderami `A` i `B`, w `A` kilka plików (w tym 
 - [ ] Wysuwanie woluminu zajętego (plik otwarty w innej aplikacji) → komunikat z powodem, wolumin zostaje.
 - [ ] Wysuwanie woluminu, na którym trwa kopiowanie z kolejki → odmowa z komunikatem (najpierw anuluj operację).
 - [ ] Pulpit/Dokumenty: system zapyta o zgodę (TCC) — aplikacja nie wymaga Full Disk Access.
+
+## Etap 4 — połączenia sieciowe (na własnym serwerze testowym lub lokalnym serwerze z testów)
+Użyj serwera, którego nie używasz do niczego ważnego (np. `OC_SERVE_SECONDS=600 swift test --filter SFTPIntegrationTests/testServeForManualUI` → `127.0.0.1:2222`, użytkownik `ola`). Aplikację uruchamiaj w kopii z innym identyfikatorem pakietu.
+- [ ] Pasek boczny → „Połączenia” → **＋**: formularz pokazuje pola zależne od protokołu; FTP i WebDAV po HTTP pokazują ostrzeżenie i wymagają zgody; **Testuj połączenie** zwraca czytelny wynik; zły adres/port/hasło dają odpowiedni komunikat (DNS, odmowa, uwierzytelnianie), bez hasła w treści.
+- [ ] Pierwsze połączenie SFTP pokazuje serwer, port, typ klucza i odcisk; „Nie ufaj” przerywa i niczego nie zapisuje; „Zaufaj i połącz” zapisuje (widać w *Połączenia → Zaufane serwery SSH*); po usunięciu zaufania pytanie wraca.
+- [ ] Hasło: z zaznaczonym „Zapamiętaj w Keychain” następne połączenie nie pyta; bez zaznaczenia pyta po rozłączeniu; edycja profilu z pustym polem hasła nie zmienia zapisanego hasła.
+- [ ] Kliknięcie połączenia otwiera katalog początkowy w aktywnym panelu; okruszki zaczynają się od nazwy połączenia; „w górę” zatrzymuje się na korzeniu serwera; wstecz/dalej działają między lokalnym a zdalnym.
+- [ ] Oba panele na różnych serwerach: F5 serwer→serwer odmawia z komunikatem; lokalny→zdalny to wysyłanie, zdalny→lokalny to pobieranie; **F6 (przenieś) jest wyłączone**, gdy któryś panel jest zdalny.
+- [ ] Wysyłanie/pobieranie folderu z plikami o nazwach ze spacjami, `#`, `%`, polskimi znakami i emoji; postęp w bajtach, prędkość; **anulowanie** w środku dużego pliku nie zostawia na serwerze pliku ani `.opencommander-tmp-*`.
+- [ ] Konflikt nazw przy wysyłaniu: pomiń / zachowaj obie / zastąp — dialog przy „zastąp” mówi, że na serwerze nie ma Kosza; zastąpienie folderu jest odrzucone.
+- [ ] **⌘⌫** w panelu zdalnym: pytanie z nazwą serwera, folderem i liczbą elementów oraz informacją o nieodwracalności; po zatwierdzeniu elementy znikają z serwera, a nie trafiają do Kosza.
+- [ ] Odłączenie serwera (wyłączenie, Wi-Fi) w trakcie transferu: operacja kończy się błędem z przyciskiem „Ponów nieudane od początku”; po przywróceniu serwera ponowienie działa i następna akcja łączy ponownie.
+- [ ] Menu kontekstowe zdalnego elementu nie ma „Pokaż w Finderze”, Quick Look ani ulubionych; Spacja nic nie robi; dwuklik pliku wyjaśnia, że trzeba go skopiować.
+- [ ] Usunięcie profilu: pytanie, czy usunąć sekrety z Keychain; po „tylko profil” hasło zostaje w Keychain (Dostęp do pęku kluczy → wpisy usługi `org.opencommander.OpenCommander.connections`).

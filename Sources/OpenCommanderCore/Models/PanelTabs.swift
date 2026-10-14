@@ -58,7 +58,7 @@ public final class PanelTabs {
     public var snapshot: [PanelSettings] { tabs.map(Self.settings) }
 
     static func settings(_ p: PanelState) -> PanelSettings {
-        PanelSettings(path: p.location.path, sortKey: p.sortKey, sortAscending: p.sortAscending)
+        PanelSettings(path: p.location.isFileURL ? p.location.path : NSHomeDirectory(), sortKey: p.sortKey, sortAscending: p.sortAscending)
     }
 
     /// Nowa karta; domyślnie z lokalizacją i sortowaniem aktywnej.

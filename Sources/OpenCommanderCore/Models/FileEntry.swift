@@ -16,7 +16,8 @@ public struct FileEntry: Identifiable, Hashable, Sendable {
     public let kind: String
     public let contentType: UTType?
 
-    public var id: String { url.path }
+    /// Lokalnie: ścieżka. Zdalnie: pełny adres `ocremote://…` (ta sama ścieżka na dwóch serwerach to dwa różne elementy).
+    public var id: String { url.isFileURL ? url.path : url.absoluteString }
 
     /// Czy dwuklik wchodzi do środka (a nie otwiera w aplikacji).
     public var isNavigable: Bool { isDirectory && !isPackage }
