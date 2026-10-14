@@ -1,157 +1,208 @@
 # OpenCommander
 
-**Natywny, dwupanelowy menedżer plików na macOS** (SwiftUI + AppKit), open source — pliki lokalne oraz serwery **SFTP, FTP, FTPS i WebDAV** w tych samych panelach.
-*(EN: a native dual-pane file manager for macOS with local files plus SFTP, FTP, FTPS and WebDAV. UI language: Polish.)*
+A native, dual-pane file manager for macOS. Local folders and **SFTP**, **FTP**, **FTPS** and
+**WebDAV** servers side by side in the same two panels. Written in Swift with SwiftUI and AppKit.
+No Electron, no account, no telemetry: the app only connects to servers you add yourself.
 
 <p align="center">
-  <img src="docs/screenshots/dark.png" alt="OpenCommander — ciemny motyw, dwa panele z kartami" width="900"><br>
-  <img src="docs/screenshots/light.png" alt="OpenCommander — jasny motyw" width="900">
+  <img src="docs/screenshots/dark.png" alt="OpenCommander, dark theme, two panels with tabs" width="900"><br>
+  <img src="docs/screenshots/light.png" alt="OpenCommander, light theme" width="900">
 </p>
 
-> **Zakres:** pliki lokalne oraz — na jawne żądanie użytkownika — serwery SFTP, FTP, FTPS i WebDAV (zob. [Połączenia sieciowe](#połączenia-sieciowe)). Aplikacja niczego nie wysyła „do domu” i nie zbiera żadnych danych; łączy się wyłącznie z serwerami, które sam dodasz.
+> The user interface is currently in Polish. A Polish version of this README is in
+> [docs/README.pl.md](docs/README.pl.md).
 
 ## Status
-Wczesna wersja **0.1**. Logika plikowa jest pokryta testami automatycznymi (SwiftPM, wyłącznie na katalogach tymczasowych), ale **interfejs jest sprawdzany ręcznie** — lista rzeczy do przeklikania jest w [MANUAL_TESTS.md](MANUAL_TESTS.md). Spodziewaj się błędów; zgłaszaj je przez Issues. Interfejs jest po polsku (bez systemu lokalizacji).
+Early version **0.1**. The file logic is covered by automated tests (SwiftPM, temporary
+directories only; network protocols are tested against local servers started inside the test
+process), but **the interface is checked by hand**: the checklist is in
+[MANUAL_TESTS.md](MANUAL_TESTS.md). Expect bugs and report them through Issues.
 
-Aplikacja **nie jest notaryzowana** ani podpisana certyfikatem dewelopera — zbuduj ją ze źródeł (poniżej). Działa bez sandboxa i bez Full Disk Access (uzasadnienie: [ARCHITECTURE.md](ARCHITECTURE.md)).
+The app is **not notarized** or signed with a developer certificate, so build it from source
+(below). It runs without the App Sandbox and without Full Disk Access (rationale in
+[ARCHITECTURE.md](ARCHITECTURE.md)).
 
-## Funkcje
-**Przeglądanie**
-- Dwa niezależne panele; **karty** w każdym (⌘T, do 10 na panel) i **przestrzenie robocze** (zapis/przywracanie kart obu paneli).
-- Tabela z wielokrotnym zaznaczaniem i sortowaniem, okruszki ścieżki, historia, przeciągany separator paneli, konfigurowalne kolumny.
-- Pasek boczny: ulubione, miejsca, woluminy (z przyciskiem **wysuń** dla USB/kart/obrazów dysków — dysk systemowy nigdy), ostatnie lokalizacje.
-- **Szukanie (⌘F)** po nazwie w folderze i podfolderach (bez rozróżniania wielkości liter i polskich znaków), Quick Look na Spacji, panel informacji (⌘I) z rozmiarem folderu liczonym tylko na żądanie.
-- Automatyczne odświeżanie po zmianach w otwartym folderze.
+## Features
 
-**Operacje na plikach**
-- Kopiowanie, przenoszenie, zmiana nazwy, nowy folder, Kosz; **schowek plików** (⌘C / ⌘V, także do i z Findera) oraz **przeciąganie** między panelami i z Findera.
-- Kolejka operacji z paskiem postępu na żywo (bajty, prędkość, szacowany czas do końca), anulowanie także w środku dużego pliku.
-- Dialog konfliktów: pomiń / zachowaj obie / zastąp (zastąpiony element trafia do Kosza).
+| Feature | How |
+|---|---|
+| Two independent panels | Tabs in each panel (⌘T, up to 10), workspaces that save and restore both panels' tabs |
+| Browsing | Multi-select table with sorting, breadcrumbs, history, draggable divider, configurable columns, automatic refresh of the open folder |
+| Sidebar | Favorites, places, volumes (with an **eject** button for USB drives, cards and disk images, never the system disk), recent locations, **connections** |
+| Search | ⌘F by name in the folder and subfolders (case and diacritics insensitive), Quick Look on Space, info panel (⌘I) with folder size computed on demand only |
+| Copy, move, rename, trash | Operation queue with live progress (bytes, speed, estimated time), cancelling even in the middle of a large file |
+| Conflicts | Skip / keep both / replace; nothing is overwritten by default and replaced local items go to the Trash |
+| Clipboard and drag and drop | ⌘C / ⌘V (also with Finder), dragging between panels and from Finder |
+| Batch rename | ⇧⌘R with a before → after preview and collision blocking |
+| Compare folders | ⇧⌘K by name, size and date, with copying of the differences |
+| Duplicate finder | By content (SHA-256), only on demand; removal goes to the Trash and always keeps one copy |
+| Network connections | SFTP, FTP, FTPS (explicit and implicit TLS) and WebDAV; each panel can show a local folder or a server location |
+| Secrets | Passwords and key passphrases only in the Keychain (or in memory for the session), never in settings files or logs |
 
-**Narzędzia**
-- **Zbiorcza zmiana nazw** (⇧⌘R) z podglądem „przed → po” i blokadą kolizji.
-- **Porównanie folderów** (⇧⌘K) po nazwie, rozmiarze i dacie, z kopiowaniem różnic.
-- **Wyszukiwanie duplikatów** po zawartości (SHA-256) — uruchamiane wyłącznie na żądanie; usuwanie tylko do Kosza i zawsze z zachowaniem jednej kopii.
+Full list of shortcuts: **Help → Keyboard Shortcuts** (⇧⌘/) and the table below.
 
-Pełna lista skrótów: menu **Pomoc → Skróty klawiszowe** (⇧⌘/) oraz tabela poniżej.
+## Network connections
+Use the **Connections** section in the sidebar (⌥⌘K opens the connection manager). Copying between a
+local panel and a server panel (F5, dragging, ⌘V) is an upload or a download through the normal
+operation queue.
 
-## Połączenia sieciowe
-Sekcja **Połączenia** w pasku bocznym (⌥⌘K — menedżer połączeń). Każdy panel niezależnie pokazuje folder lokalny albo lokalizację na serwerze; kopiowanie między nimi (F5, przeciąganie, ⌘V) to wysyłanie lub pobieranie przez zwykłą kolejkę operacji.
+**Adding a connection:** sidebar → **＋** next to "Connections" (or the *Połączenia → Nowe połączenie…* menu)
+→ pick a protocol, fill in the fields, **Test connection**, **Save**. Clicking a connection in the
+sidebar connects and opens its start folder in the active panel.
 
-**Jak dodać połączenie:** pasek boczny → **＋** przy „Połączenia” (albo menu *Połączenia → Nowe połączenie…*) → wybierz protokół, wypełnij pola, **Testuj połączenie**, **Zapisz**. Kliknięcie połączenia w pasku bocznym łączy i otwiera katalog początkowy w aktywnym panelu.
-
-| | SFTP | FTP | FTPS (jawny/niejawny) | WebDAV |
+| | SFTP | FTP | FTPS (explicit / implicit) | WebDAV |
 |---|---|---|---|---|
-| Szyfrowanie | SSH | **brak** (wymaga jawnej zgody w profilu) | TLS 1.2+, weryfikacja certyfikatu i nazwy hosta | HTTPS (HTTP tylko po jawnej zgodzie, z ostrzeżeniem) |
-| Logowanie | hasło, klucz (Ed25519/RSA, także z hasłem do klucza) | hasło, anonimowo | hasło, anonimowo | hasło (Basic/Digest), anonimowo |
-| Lista, pobieranie, wysyłanie | ✅ | ✅ (MLSD; zapasowo LIST — heurystyka) | ✅ | ✅ |
-| Nowy folder, zmiana nazwy, usuwanie | ✅ | ✅ | ✅ | ✅ |
-| Wznawianie przerwanych transferów | ❌ | ❌ | ❌ | ❌ |
-| Przenoszenie lokalne ↔ zdalne | ❌ (tylko kopia) | ❌ | ❌ | ❌ |
-| Kopiowanie serwer → serwer | ❌ | ❌ | ❌ | ❌ |
-| Weryfikacja serwera | odcisk klucza (pytanie przy pierwszym połączeniu, blokada przy zmianie) | — | certyfikat TLS | certyfikat TLS |
+| Encryption | SSH | **none** (needs explicit consent in the profile) | TLS 1.2, certificate and host name verified | HTTPS (HTTP only after explicit consent, with a warning) |
+| Login | password, key (Ed25519 / RSA, also with a passphrase) | password, anonymous | password, anonymous | password (Basic / Digest), anonymous |
+| List, download, upload | ✅ | ✅ (MLSD, LIST as a heuristic fallback) | ✅ | ✅ |
+| New folder, rename, delete | ✅ | ✅ | ✅ | ✅ |
+| Resuming interrupted transfers | ❌ | ❌ | ❌ | ❌ |
+| Moving between local and remote | ❌ (copy only) | ❌ | ❌ | ❌ |
+| Server to server copy | ❌ | ❌ | ❌ | ❌ |
+| Server verification | key fingerprint (asked on first connect, blocked when it changes) | n/a | TLS certificate | TLS certificate |
 
-Co to oznacza w praktyce:
-- **Usuwanie na serwerze nie jest Koszem.** Aplikacja pyta osobno i pokazuje serwer, folder i liczbę elementów; może być nieodwracalne.
-- **Nic nie jest nadpisywane domyślnie.** Konflikt: pomiń / zachowaj obie / zastąp (zastąp na serwerze nadpisuje plik bez Kosza — dialog to mówi). Zastąpienie *folderu* na serwerze jest zablokowane.
-- Wysyłanie idzie przez nazwę tymczasową `.opencommander-tmp-…` i zmianę nazwy po sprawdzeniu rozmiaru; przerwany lub anulowany transfer nie zostawia pliku, który wyglądałby na kompletny. **Ponów** (przy nieudanej operacji) zaczyna dany element od początku — niczego nie ponawiamy automatycznie.
-- Źródło lokalne nie jest usuwane po wysłaniu. Dowiązania symboliczne na serwerze nie są rozwijane ani kopiowane.
-- Nazwy plików z serwera są niezaufane: nazwy ze `/`, `..` albo znakami sterującymi są odrzucane (ochrona przed path traversal i wstrzykiwaniem poleceń FTP).
+What this means in practice:
+- **Deleting on a server is not the Trash.** The app asks separately and shows the server, folder and
+  number of items; it may be irreversible.
+- **Nothing is overwritten by default.** Conflicts: skip / keep both / replace (replacing on a server
+  overwrites the file without a Trash, and the dialog says so). Replacing a *folder* on a server is blocked.
+- Uploads go through a temporary name `.opencommander-tmp-…` and a rename after the size check, so an
+  interrupted or cancelled transfer never leaves a file that looks complete. **Retry** restarts the failed
+  item from the beginning; nothing is retried automatically.
+- The local source is never deleted after an upload. Symbolic links on a server are neither followed nor copied.
+- File names coming from a server are untrusted: names with `/`, `..` or control characters are rejected
+  (protection against path traversal and FTP command injection).
 
-### Sekrety i zaufanie
-- **Hasła i hasła do kluczy trafiają wyłącznie do Keychain** (rodzaj „generic password”, `ThisDeviceOnly`, bez synchronizacji iCloud). Profil połączeń (UserDefaults, JSON) zawiera tylko konfigurację i anonimowy identyfikator sekretu — nigdy hasło, passphrase ani zawartość klucza (dla klucza prywatnego zapisujemy tylko ścieżkę do pliku).
-- Odznacz „Zapamiętaj hasło w Keychain”, a hasło będzie żyło tylko w pamięci do rozłączenia lub zamknięcia aplikacji.
-- Usuwając profil, wybierasz, czy usunąć też jego sekrety z Keychain; sekret używany przez inny profil nigdy nie jest usuwany.
-- Błędy i komunikaty przechodzą przez maskowanie (hasła, tokeny, nagłówki Authorization/Cookie, adresy z danymi logowania, bloki kluczy PEM). Aplikacja niczego nie loguje na dysk.
-- **SFTP:** przy pierwszym połączeniu widzisz host, port, typ klucza i odcisk SHA256; zaufanie jest zapisywane dopiero po Twojej zgodzie. **Zmieniony klucz blokuje połączenie bez pytania.** Lista zaufanych serwerów (podgląd/usuwanie): *Połączenia → Zaufane serwery SSH*. To własny plik aplikacji, **nie** pełna obsługa `~/.ssh/known_hosts` (bez zahaszowanych nazw, wzorców, certyfikatów i `@revoked`).
-- **FTPS:** brak „akceptuj wszystko” — niezaufany lub niepasujący certyfikat kończy połączenie, a serwer bez TLS nigdy nie powoduje cichego przejścia na zwykłe FTP (hasło nie jest wtedy wysyłane). **WebDAV:** bez przekierowań na inny host, bez obniżania HTTPS→HTTP, poświadczenia tylko do hosta z adresu bazowego.
+### Secrets and trust
+- **Passwords and key passphrases go only to the Keychain** (generic password, `ThisDeviceOnly`, no iCloud
+  sync). The profile store (UserDefaults, JSON) holds configuration and an anonymous secret identifier, never a
+  password, passphrase or key contents (for a private key only the file path is stored).
+- Untick "remember password in Keychain" and the password lives only in memory until you disconnect or quit.
+- When you delete a profile you choose whether to delete its secrets too; a secret shared with another profile
+  is never deleted.
+- Errors and messages are redacted (passwords, tokens, Authorization/Cookie headers, URLs with credentials,
+  PEM key blocks). The app does not write logs to disk.
+- **SFTP:** on first connect you see the host, port, key type and SHA256 fingerprint; trust is saved only after
+  you accept. **A changed key blocks the connection without asking.** The trusted list (view / remove) is under
+  *Połączenia → Zaufane serwery SSH*. It is the app's own file, **not** full `~/.ssh/known_hosts` support
+  (no hashed host names, patterns, certificates or `@revoked`).
+- **FTPS:** there is no "accept everything": an untrusted or mismatching certificate ends the connection, and a
+  server without TLS never makes the app silently fall back to plain FTP (the password is not sent). **WebDAV:**
+  no redirects to another host, no HTTPS to HTTP downgrade, credentials only to the host of the base address.
 
-### Ograniczenia połączeń
-- Transfery nie są wznawiane; SFTP przesyła dane sekwencyjnie po 32 KiB, więc przy dużym opóźnieniu jest wolniejszy niż klient OpenSSH.
-- SFTP: biblioteka Citadel czyta klucze Ed25519 i RSA w formacie OpenSSH (nie ECDSA, nie starszy format PEM); korzysta z forka `swift-nio-ssh` (zob. [ARCHITECTURE.md](ARCHITECTURE.md)).
-- FTP: bez MLSD czasy z `LIST` są przybliżone (brak roku w starszych wpisach), a nietypowe formaty list są pomijane i liczone, nie zgadywane. Jedno połączenie, operacje szeregowo. Kodowanie nazw: UTF-8.
-- WebDAV: bez blokad (LOCK) i PROPPATCH; przy Digest treść PUT może zostać wysłana dwukrotnie (po wyzwaniu serwera). Plików ze zdalnego panelu nie otwiera się bezpośrednio — skopiuj je na dysk.
-- Pliki zdalne nie mają Quick Look, „Pokaż w Finderze” ani ulubionych; zbiorcza zmiana nazw, porównanie i duplikaty działają tylko lokalnie.
-- Zdalny listing odświeża się ręcznie (⌘R) i po własnych operacjach — nie ma obserwatora zmian na serwerze.
-- macOS może zapytać o dostęp do sieci lokalnej przy łączeniu z urządzeniami w LAN.
-- Jeśli serwer zerwie połączenie, następna akcja łączy ponownie (z pytaniem o hasło, gdy nie jest zapisane); przerwane operacje trzeba ponowić ręcznie.
+### Limitations
+- Transfers are not resumed. SFTP sends data sequentially in 32 KiB chunks, so on high-latency links it is slower
+  than the OpenSSH client.
+- SFTP: the Citadel library reads Ed25519 and RSA keys in OpenSSH format (no ECDSA, no legacy PEM) and
+  supports only Ed25519 / ECDSA **host** keys, so servers that offer only RSA/DSA host keys cannot be reached over
+  SFTP (use FTPS there). It builds on a fork of `swift-nio-ssh` (see [ARCHITECTURE.md](ARCHITECTURE.md)).
+- FTP: without MLSD the times from `LIST` are approximate and unusual list formats are skipped and counted, not
+  guessed. One connection, operations run one at a time. File names are UTF-8. FTPS is capped at TLS 1.2
+  because many servers (for example ProFTPD) require TLS session reuse on the data channel.
+- WebDAV: no locking (LOCK) and no PROPPATCH; with Digest authentication an upload body may be sent twice.
+  Files in a remote panel are not opened directly: copy them to disk first.
+- Remote items have no Quick Look, no "Reveal in Finder" and no favorites; batch rename, folder comparison and
+  duplicates work on local folders only.
+- A remote listing refreshes manually (⌘R) and after the app's own operations; there is no change watcher.
+- macOS may ask for local network access when you connect to devices on your LAN.
+- If a server drops the connection, the next action reconnects (asking for the password when it is not saved);
+  interrupted operations have to be retried by hand.
 
-### Testy z serwerami (bezpiecznie)
-Testy automatyczne łączą się **wyłącznie z serwerami uruchamianymi w procesie testowym na 127.0.0.1** (katalogi tymczasowe, certyfikaty generowane na czas testu) — nigdy z serwerami publicznymi ani Twoimi. `swift test` pokrywa: SFTP (hasło, nieznany/zmieniony klucz hosta, zerwanie, anulowanie, Unicode), WebDAV (odpowiedzi 207, przestrzenie nazw, prefiks ścieżki, przekierowania, uwierzytelnianie, nieprawidłowy certyfikat), FTP (MLSD/LIST, tryb pasywny, zerwanie) i FTPS jawny/niejawny (weryfikacja certyfikatu i hosta, brak obniżania). Testy FTPS jawnego używają `python3` i `openssl` z systemu (pomijane, gdy ich brak).
-Do ręcznego sprawdzenia interfejsu możesz uruchomić lokalny serwer SFTP testowy: `OC_SERVE_SECONDS=300 swift test --filter SFTPIntegrationTests/testServeForManualUI` (nasłuch `127.0.0.1:2222`, użytkownik `ola`, hasło z `TestSFTPServer`), a w aplikacji — **kopii z innym identyfikatorem pakietu** (zob. [CLAUDE.md](CLAUDE.md)) — dodać profil SFTP na ten adres.
+### Testing with servers (safely)
+The automated tests connect **only to servers started inside the test process on 127.0.0.1** (temporary
+directories, certificates generated for the test), never to public servers or yours. `swift test` covers SFTP
+(password, unknown / changed host key, dropped connection, cancelling, Unicode), WebDAV (207 responses,
+namespaces, path prefix, redirects, authentication, invalid certificate), FTP (MLSD / LIST, passive mode,
+dropped connection) and explicit / implicit FTPS (certificate and host verification, no downgrade). The explicit
+FTPS tests use `python3` and `openssl` from the system and are skipped when they are missing.
 
-### Biblioteki i licencje
-| Komponent | Do czego | Licencja |
+To check the interface by hand you can start a local test SFTP server:
+`OC_SERVE_SECONDS=300 swift test --filter SFTPIntegrationTests/testServeForManualUI` (listens on
+`127.0.0.1:2222`, user `ola`, password from `TestSFTPServer`), and add an SFTP profile for that address in **a copy
+of the app with a different bundle identifier** (see [CLAUDE.md](CLAUDE.md)).
+
+### Libraries and licenses
+| Component | Used for | License |
 |---|---|---|
-| [Citadel](https://github.com/orlandos-nl/Citadel) 0.12.1 | SFTP/SSH | MIT |
-| [swift-nio-ssh](https://github.com/Wellz26/swift-nio-ssh) 0.3.7 (fork używany przez Citadel) | SSH | Apache-2.0 |
-| swift-nio, swift-log, swift-crypto, swift-asn1, swift-atomics, swift-collections, swift-system (Apple) | zależności tranzytywne | Apache-2.0 |
-| [BigInt](https://github.com/attaswift/BigInt) 5.7.0 | zależność tranzytywna | MIT |
-| libcurl (systemowa, `libcurl.4.dylib`) | FTP/FTPS (TLS przez SecureTransport) | licencja curl — biblioteka systemu, nie jest dołączana do aplikacji |
-| `URLSession`, `XMLParser`, Keychain, Network.framework | WebDAV, XML, sekrety | część macOS |
+| [Citadel](https://github.com/orlandos-nl/Citadel) 0.12.1 | SFTP / SSH | MIT |
+| [swift-nio-ssh](https://github.com/Wellz26/swift-nio-ssh) 0.3.7 (fork used by Citadel) | SSH | Apache-2.0 |
+| swift-nio, swift-log, swift-crypto, swift-asn1, swift-atomics, swift-collections, swift-system (Apple) | transitive dependencies | Apache-2.0 |
+| [BigInt](https://github.com/attaswift/BigInt) 5.7.0 | transitive dependency | MIT |
+| libcurl (system, `libcurl.4.dylib`) | FTP / FTPS | curl license; a macOS system library, not bundled with the app |
+| `URLSession`, `XMLParser`, Keychain, Network.framework | WebDAV, XML, secrets | part of macOS |
 
-Wersje są przypięte w `Package.swift` (Citadel `exact`) i `Package.resolved`. SSH, TLS i kryptografia nie są implementowane we własnym zakresie.
+Versions are pinned in `Package.swift` (Citadel with `exact`) and `Package.resolved`. SSH, TLS and
+cryptography are not implemented in this project.
 
-## Bezpieczeństwo danych
-- Nic nie jest nadpisywane domyślnie; usuwanie lokalne z poziomu UI to zawsze Kosz (na serwerze: osobne, jawne potwierdzenie — zob. wyżej).
-- Przy przenoszeniu między woluminami źródło jest usuwane dopiero po udanej kopii; kopiowanie folderu do samego siebie jest blokowane; dowiązania symboliczne są kopiowane jako dowiązania.
-- Pliki tymczasowe są rejestrowane w dzienniku — po przerwanej sesji niedokończone kopie są sprzątane, a elementy przerwane w trakcie przenoszenia **przywracane**, nie kasowane.
-- Rozmiary folderów i skróty zawartości są liczone tylko po akcji użytkownika; listowanie nie czyta zawartości plików.
+## Data safety
+- Nothing is overwritten by default; deleting a local item from the UI always means the Trash (on a server there
+  is a separate, explicit confirmation, see above).
+- When moving between volumes the source is removed only after a successful copy; copying a folder into itself is
+  blocked; symbolic links are copied as links.
+- Temporary files are recorded in a journal: after an interrupted session unfinished copies are cleaned up and
+  items interrupted in the middle of a move are **restored**, not deleted.
+- Folder sizes and content hashes are computed only after a user action; listing never reads file contents.
 
-Szczegóły i zasady dla współtwórców: [CLAUDE.md](CLAUDE.md#zasady-bezpieczeństwa-operacji).
+Details and rules for contributors: [CLAUDE.md](CLAUDE.md) (in Polish).
 
-## Wymagania i budowanie
-macOS 14.4+ (minimalny rozmiar okna 900 pt), Xcode 15+ (rozwijane na Xcode 27 / Swift 6.4).
+## Requirements and building
+macOS 14.4 or later (minimum window width 900 pt), Xcode 15 or later (developed on Xcode 27 / Swift 6.4).
 
 ```bash
-# testy logiki (SwiftPM)
+# logic tests (SwiftPM)
 swift test --scratch-path /tmp/oc-spm
 
-# aplikacja
+# the app
 xcodebuild -project OpenCommander.xcodeproj -scheme OpenCommander \
   -destination 'platform=macOS' -derivedDataPath /tmp/oc-dd build
 open /tmp/oc-dd/Build/Products/Debug/OpenCommander.app
 ```
-Projekt Xcode jest generowany z `project.yml` ([XcodeGen](https://github.com/yonaskolb/XcodeGen)); `OpenCommander.xcodeproj` jest w repozytorium, więc XcodeGen nie jest potrzebny do zwykłego budowania.
-Jeśli repozytorium leży w folderze synchronizowanym z iCloud (np. Documents), podpisywanie może zgłosić „detritus” — buduj z `-derivedDataPath` poza tym folderem, jak wyżej.
+The Xcode project is generated from `project.yml` with [XcodeGen](https://github.com/yonaskolb/XcodeGen);
+`OpenCommander.xcodeproj` is in the repository, so XcodeGen is not needed for an ordinary build.
+If the repository lives in an iCloud-synced folder (for example Documents), code signing may complain about
+"detritus": build with `-derivedDataPath` outside that folder, as above.
 
-## Skróty klawiszowe
-| Skrót | Akcja |
+## Keyboard shortcuts
+| Shortcut | Action |
 |---|---|
-| Tab, ⌘` | przełącz panel |
-| Enter, ⌘↓ | otwórz |
-| ⌘↑ / ⌘[ / ⌘] | folder nadrzędny / wstecz / dalej |
-| ⌘R | odśwież |
-| ⇧⌘N / ⇧⌘O | nowy folder / wybierz folder |
-| F2 | zmień nazwę |
-| F5 / F6 | kopiuj / przenieś do drugiego panelu |
-| ⌘C / ⌘V (też ⌥C / ⌥V) | kopiuj / wklej pliki |
-| ⌥⌘C | kopiuj ścieżkę |
-| ⌘⌫ | do Kosza (z potwierdzeniem) |
-| ⌘E | wysuń wolumin aktywnego panelu |
-| ⌥⌘R | pokaż w Finderze |
-| ⌘F | szukaj w folderze i podfolderach (Esc zamyka) |
-| Spacja | szybki podgląd |
-| ⌘I | panel informacji |
-| ⇧⌘. | pliki ukryte |
-| ⌘D | dodaj/usuń folder z ulubionych |
-| ⌘T / ⌘W | nowa karta / zamknij kartę (ostatnia karta panelu zamyka okno) |
-| ⇧⌘] / ⇧⌘[ | następna / poprzednia karta |
-| ⌥⌘S | zapisz przestrzeń roboczą |
-| ⇧⌘R | zbiorcza zmiana nazw |
-| ⇧⌘K | porównaj foldery |
-| ⇧⌘/ | lista skrótów |
+| Tab, ⌘` | switch panel |
+| Enter, ⌘↓ | open |
+| ⌘↑ / ⌘[ / ⌘] | parent folder / back / forward |
+| ⌘R | refresh |
+| ⇧⌘N / ⇧⌘O | new folder / choose folder |
+| F2 | rename |
+| F5 / F6 | copy / move to the other panel |
+| ⌘C / ⌘V (also ⌥C / ⌥V) | copy / paste files |
+| ⌥⌘C | copy path |
+| ⌘⌫ | move to Trash (with confirmation); on a server, delete after a separate confirmation |
+| ⌘E | eject the volume of the active panel |
+| ⌥⌘R | reveal in Finder |
+| ⌘F | search in the folder and subfolders (Esc closes) |
+| Space | Quick Look |
+| ⌘I | info panel |
+| ⇧⌘. | hidden files |
+| ⌘D | add / remove the folder from favorites |
+| ⌘T / ⌘W | new tab / close tab (the last tab of a panel closes the window) |
+| ⇧⌘] / ⇧⌘[ | next / previous tab |
+| ⌥⌘S | save workspace |
+| ⌥⌘K | connection manager |
+| ⇧⌘R | batch rename |
+| ⇧⌘K | compare folders |
+| ⇧⌘/ | shortcut list |
 
-Klawisze F wymagają Fn albo włączonej opcji „Używaj klawiszy F1, F2 itd. jak standardowych”; wszystkie akcje są też w menu.
+F keys need Fn or the "Use F1, F2, etc. keys as standard function keys" option; every action is also in the menus.
 
-## Znane ograniczenia
-- W wąskich panelach (np. przy otwartym panelu informacji) kolumny „Rodzaj” i „Zmodyfikowano” mogą się ucinać — widoczność kolumn zmienisz prawym kliknięciem na nagłówku tabeli albo poszerz panel przeciągając separator.
-- Automatyczne odświeżanie widzi zmiany bezpośrednio w otwartym folderze, nie w podfolderach ani w zawartości plików.
-- Zbiorcza zmiana nazw odrzuca zamiany i łańcuchy nazw (a→b, b→a) zamiast je obsługiwać.
-- Plan prac i to, czego jeszcze nie ma: [ROADMAP.md](ROADMAP.md).
+## Known limitations
+- In narrow panels (for example with the info panel open) the "Kind" and "Modified" columns may be clipped:
+  change the column visibility with a right click on the table header, or widen the panel by dragging the divider.
+- Automatic refresh sees changes directly in the open folder, not in subfolders or file contents.
+- Batch rename rejects swaps and chains of names (a→b, b→a) instead of handling them.
+- The plan and what is still missing: [ROADMAP.md](ROADMAP.md) (in Polish).
 
-## Współtworzenie
-Zob. [CONTRIBUTING.md](CONTRIBUTING.md). Logika plikowa musi mieć testy na katalogach tymczasowych; testy sieciowe tylko na serwerach lokalnych w procesie testowym.
+## Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md) (in Polish). File logic must have tests on temporary directories; network
+tests only against local servers inside the test process.
 
-## Licencja i autorstwo
-MIT — zob. [LICENSE](LICENSE). Ikona aplikacji: [Tools/icon](Tools/icon/README.md) (zaprojektowana z użyciem skilla [logo-design](https://github.com/kaankiziltug/logo-design-skill), MIT).
+## License and credits
+MIT, see [LICENSE](LICENSE). App icon: [Tools/icon](Tools/icon/README.md) (designed with the
+[logo-design](https://github.com/kaankiziltug/logo-design-skill) skill, MIT).
