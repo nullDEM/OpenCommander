@@ -6,7 +6,7 @@
 *(EN: a native dual-pane file manager for macOS with local files plus SFTP, FTP, FTPS and WebDAV. UI language: Polish.)*
 
 <p align="center">
-  <img src="screenshots/dark.png" alt="OpenCommander — ciemny motyw, dwa panele z kartami" width="900"><br>
+  <img src="screenshots/dark.png" alt="OpenCommander — ciemny motyw, dwa panele z kartami i sekcją Połączenia" width="900"><br>
   <img src="screenshots/light.png" alt="OpenCommander — jasny motyw" width="900">
 </p>
 

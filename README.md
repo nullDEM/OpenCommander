@@ -5,7 +5,7 @@ A native, dual-pane file manager for macOS. Local folders and **SFTP**, **FTP**,
 No Electron, no account, no telemetry: the app only connects to servers you add yourself.
 
 <p align="center">
-  <img src="docs/screenshots/dark.png" alt="OpenCommander, dark theme, two panels with tabs" width="900"><br>
+  <img src="docs/screenshots/dark.png" alt="OpenCommander, dark theme, two panels with tabs and a Connections section" width="900"><br>
   <img src="docs/screenshots/light.png" alt="OpenCommander, light theme" width="900">
 </p>
 
