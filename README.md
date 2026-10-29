@@ -22,6 +22,10 @@ The app is **not notarized** or signed with a developer certificate, so build it
 (below). It runs without the App Sandbox and without Full Disk Access (rationale in
 [ARCHITECTURE.md](ARCHITECTURE.md)).
 
+Some files are protected by macOS (for example ones received in Messages or AirDrop) and cannot be
+moved to the Trash by an app without Full Disk Access. In that case OpenCommander asks Finder to do it
+(Automation consent, local volumes only); you can also grant Full Disk Access yourself.
+
 ## Features
 
 | Feature | How |

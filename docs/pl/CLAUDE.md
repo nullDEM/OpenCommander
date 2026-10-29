@@ -4,7 +4,7 @@ Lokalny, dwupanelowy menedżer plików na macOS (Swift, SwiftUI + AppKit). **Eta
 
 ## Polecenia
 ```bash
-swift test --scratch-path /tmp/oc-spm     # Core (175) + Remote (SFTP/WebDAV/FTP/FTPS na serwerach lokalnych w procesie testowym)
+swift test --scratch-path /tmp/oc-spm     # Core (196) + Remote (87; SFTP/WebDAV/FTP/FTPS na serwerach lokalnych w procesie testowym)
 xcodegen generate                          # po zmianie project.yml
 xcodebuild -project OpenCommander.xcodeproj -scheme OpenCommander -destination 'platform=macOS' -derivedDataPath /tmp/oc-dd build
 ```

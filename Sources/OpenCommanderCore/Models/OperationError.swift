@@ -33,7 +33,7 @@ public enum OperationError: Error, Equatable, Sendable, LocalizedError {
             return "Skopiowano „\(n)”, ale nie udało się usunąć oryginału: \(r). Obie wersje pozostały."
         case .trashFailed(let n, let r): return "Nie udało się przenieść „\(n)” do Kosza: \(r)"
         case .trashAccessDenied(let n, let detail):
-            return "Nie udało się przenieść „\(n)” do Kosza: macOS odmówił dostępu do tego elementu. Zwykle chroni go system (np. plik odebrany w Wiadomościach lub przez AirDrop albo folder objęty ochroną prywatności). Nadaj aplikacji Pełny dostęp do dysku (Ustawienia systemowe → Prywatność i ochrona) albo usuń element w Finderze." + (detail.isEmpty ? "" : " (Kod systemowy: \(detail))")
+            return "Nie udało się przenieść „\(n)” do Kosza: macOS odmówił dostępu do tego elementu. Zwykle chroni go system (np. plik odebrany w Wiadomościach lub przez AirDrop albo folder objęty ochroną prywatności). Nadaj aplikacji Pełny dostęp do dysku (Ustawienia systemowe → Prywatność i ochrona) albo usuń element w Finderze. Jeśli odmówiono aplikacji sterowania Finderem, zezwól na to w sekcji Automatyzacja." + (detail.isEmpty ? "" : " (Kod systemowy: \(detail))")
         case .ejectFailed(let n, let r):
             return "Nie udało się wysunąć „\(n)”: \(r)\nZamknij pliki otwarte z tego woluminu (także w innych aplikacjach) i spróbuj ponownie."
         case .other(let n, let r): return "„\(n)”: \(r)"

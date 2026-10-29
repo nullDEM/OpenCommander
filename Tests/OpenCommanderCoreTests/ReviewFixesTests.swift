@@ -188,3 +188,26 @@ final class ProfileValidationTests: XCTestCase {
         XCTAssertNil(anon.validationError())
     }
 }
+
+final class SystemTrasherTests: TempDirTestCase {
+    func testFinderScriptEscapesQuotesAndBackslashes() {
+        let url = URL(fileURLWithPath: "/tmp/a\"b\\c.txt")
+        XCTAssertEqual(SystemTrasher.finderTrashScript(for: url),
+                       #"tell application "Finder" to delete POSIX file "/tmp/a\"b\\c.txt""#)
+    }
+
+    func testFinderScriptKeepsPathAsSingleLiteral() {
+        // Próba wstrzyknięcia: cudzysłów w nazwie nie może zamknąć literału.
+        let url = URL(fileURLWithPath: "/tmp/x\" & (do shell script \"id\") & \".txt")
+        let script = SystemTrasher.finderTrashScript(for: url)
+        XCTAssertTrue(script.contains(#"x\" & (do shell script \"id\") & \".txt"#))
+    }
+
+    func testTemporaryDirectoryIsLocalVolume() {
+        XCTAssertTrue(SystemTrasher.isOnLocalVolume(root))
+    }
+
+    func testMissingPathIsNotTreatedAsLocal() {
+        XCTAssertFalse(SystemTrasher.isOnLocalVolume(root.appendingPathComponent("brak/nie-ma")))
+    }
+}

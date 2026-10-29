@@ -3,49 +3,78 @@ import Foundation
 
 /// Przenoszenie do Kosza jako zależność — w testach podmieniane, by nie ruszać prawdziwego Kosza.
 public protocol Trashing: Sendable {
-    func trash(_ url: URL) throws
+    func trash(_ url: URL) async throws
 }
 
 public struct SystemTrasher: Trashing {
     public init() {}
-    public func trash(_ url: URL) throws {
+
+    public func trash(_ url: URL) async throws {
         do {
             try FileManager.default.trashItem(at: url, resultingItemURL: nil)
         } catch {
-            // Przy odmowie dostępu (np. plik z `com.apple.macl` na Pulpicie iCloud) próbujemy drugiej drogi systemowej;
-            // gdy i ona zawiedzie, zgłaszamy pierwotny błąd. Inne błędy (np. brak pliku) nie są ponawiane.
+            // Przy odmowie dostępu (np. plik z `com.apple.macl` na Pulpicie iCloud) próbujemy dalszych dróg systemowych;
+            // gdy wszystkie zawiodą, zgłaszamy pierwotny błąd. Inne błędy (np. brak pliku) nie są ponawiane.
             guard case .permissionDenied = OperationError.map(error, item: url.lastPathComponent) else { throw error }
-            if Self.recycleViaWorkspace(url) || Self.trashViaFinder(url) { return }
+            if await Self.recycleViaWorkspace(url) { return }
+            if await Self.trashViaFinder(url) { return }
             throw error
         }
     }
 
-    /// `NSWorkspace.recycle` działa przez system (nie tylko przez uprawnienia procesu); wywołanie blokuje do końca (z limitem czasu).
-    /// Nie wolno go wołać z głównego wątku, bo oczekiwanie zablokowałoby odpowiedź systemu.
-    private static func recycleViaWorkspace(_ url: URL) -> Bool {
-        if Thread.isMainThread { return false }
-        let done = DispatchSemaphore(value: 0)
-        let box = RecycleResult()
-        NSWorkspace.shared.recycle([url]) { trashed, error in
-            box.ok = error == nil && !trashed.isEmpty
-            done.signal()
+    /// `NSWorkspace.recycle` działa przez system (nie tylko przez uprawnienia procesu). Bez blokowania wątku; limit czasu 30 s.
+    private static func recycleViaWorkspace(_ url: URL) async -> Bool {
+        await withCheckedContinuation { cont in
+            let once = ResumeOnce()
+            NSWorkspace.shared.recycle([url]) { trashed, error in
+                let ok = error == nil && !trashed.isEmpty
+                once.run { cont.resume(returning: ok) }
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 30) { once.run { cont.resume(returning: false) } }
         }
-        guard done.wait(timeout: .now() + 30) == .success else { return false }
-        return box.ok
     }
 
     /// Ostatnia droga: prosimy Finder (ma własne uprawnienia do chronionych plików) o przeniesienie do Kosza — nie o trwałe usunięcie.
-    /// Wymaga zgody użytkownika na automatyzację Findera; sukces uznajemy dopiero, gdy pliku już nie ma w dotychczasowym miejscu.
-    private static func trashViaFinder(_ url: URL) -> Bool {
-        if Thread.isMainThread { return false }
-        let escaped = url.path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-        var errorInfo: NSDictionary?
-        let script = NSAppleScript(source: "tell application \"Finder\" to delete POSIX file \"\(escaped)\"")
-        _ = script?.executeAndReturnError(&errorInfo)
-        return errorInfo == nil && !FileManager.default.fileExists(atPath: url.path)
+    /// Tylko dla woluminów lokalnych: na dysku sieciowym bez Kosza Finder mógłby usunąć element bezpowrotnie.
+    /// Wymaga zgody użytkownika na automatyzację Findera; sukces uznajemy dopiero, gdy pliku nie ma już w dotychczasowym miejscu.
+    private static func trashViaFinder(_ url: URL) async -> Bool {
+        guard isOnLocalVolume(url) else { return false }
+        let source = finderTrashScript(for: url)
+        return await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                var errorInfo: NSDictionary?
+                _ = NSAppleScript(source: source)?.executeAndReturnError(&errorInfo)
+                cont.resume(returning: errorInfo == nil && !FileManager.default.fileExists(atPath: url.path))
+            }
+        }
     }
 
-    private final class RecycleResult: @unchecked Sendable { var ok = false }
+    /// Wolumin lokalny (wewnętrzny lub podłączony do tego Maca). Gdy nie da się ustalić — traktujemy jak nielokalny.
+    static func isOnLocalVolume(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.volumeIsLocalKey]).volumeIsLocal) ?? false
+    }
+
+    /// Skrypt dla Findera: `delete` przenosi do Kosza. Ścieżka trafia do literału tekstowego, więc `\` i `"` są poprzedzane ukośnikiem.
+    static func finderTrashScript(for url: URL) -> String {
+        let escaped = url.path
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "tell application \"Finder\" to delete POSIX file \"\(escaped)\""
+    }
+
+    /// Wykonuje akcję najwyżej raz (wynik albo limit czasu — co nastąpi pierwsze).
+    private final class ResumeOnce: @unchecked Sendable {
+        private let lock = NSLock()
+        private var done = false
+        func run(_ action: () -> Void) {
+            let first = lock.withLock { () -> Bool in
+                if done { return false }
+                done = true
+                return true
+            }
+            if first { action() }
+        }
+    }
 }
 
 /// Wykonuje kopiowanie, przenoszenie i przenoszenie do Kosza.
@@ -113,7 +142,7 @@ public struct FileOperationEngine: Sendable {
             let outcome: ItemOutcome
             switch op.kind {
             case .trash:
-                outcome = trash(source)
+                outcome = await trash(source)
             case .delete:
                 outcome = .failed(.other(name: source.lastPathComponent, reason: "usuwanie trwałe jest dostępne tylko na serwerach zdalnych."))
             case .copy, .move:
@@ -133,11 +162,11 @@ public struct FileOperationEngine: Sendable {
 
     // MARK: - Kosz
 
-    private func trash(_ url: URL) -> ItemOutcome {
+    private func trash(_ url: URL) async -> ItemOutcome {
         let name = url.lastPathComponent
         guard Self.exists(url) else { return .failed(.sourceMissing(name)) }
         do {
-            try trasher.trash(url)
+            try await trasher.trash(url)
             return .completed(nil)
         } catch {
             return .failed(OperationError.trash(error, name: name))
@@ -218,7 +247,7 @@ public struct FileOperationEngine: Sendable {
         }
 
         if replacing {
-            do { try trasher.trash(finalTarget) } catch {
+            do { try await trasher.trash(finalTarget) } catch {
                 rollback()
                 return .failed(OperationError.trash(error, name: finalTarget.lastPathComponent))
             }

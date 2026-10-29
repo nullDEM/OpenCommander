@@ -17,6 +17,8 @@ Wczesna wersja **0.1**. Logika plikowa jest pokryta testami automatycznymi (Swif
 
 Aplikacja **nie jest notaryzowana** ani podpisana certyfikatem dewelopera — zbuduj ją ze źródeł (poniżej). Działa bez sandboxa i bez Full Disk Access (uzasadnienie: [ARCHITECTURE.md](pl/ARCHITECTURE.md)).
 
+Niektóre pliki są chronione przez macOS (np. odebrane w Wiadomościach lub przez AirDrop) i aplikacja bez Pełnego dostępu do dysku nie może ich przenieść do Kosza. Wtedy OpenCommander prosi o to Finder (zgoda na Automatyzację, tylko woluminy lokalne); możesz też sam nadać Pełny dostęp do dysku.
+
 ## Funkcje
 **Przeglądanie**
 - Dwa niezależne panele; **karty** w każdym (⌘T, do 10 na panel) i **przestrzenie robocze** (zapis/przywracanie kart obu paneli).

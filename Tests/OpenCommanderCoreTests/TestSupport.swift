@@ -8,7 +8,7 @@ final class FakeTrasher: Trashing, @unchecked Sendable {
     var trashed: [URL] = []
     var shouldFail = false
     init(bin: URL) { self.bin = bin }
-    func trash(_ url: URL) throws {
+    func trash(_ url: URL) async throws {
         if shouldFail { throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError) }
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
         try FileManager.default.moveItem(at: url, to: bin.appendingPathComponent(UUID().uuidString + "-" + url.lastPathComponent))

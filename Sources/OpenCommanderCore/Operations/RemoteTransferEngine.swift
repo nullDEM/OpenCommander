@@ -338,7 +338,7 @@ public struct RemoteTransferEngine: RemoteOperationHandling {
                     try await downloadFile(loc.path, size: entry.size, to: tmp, provider: provider, ctx: ctx)
                 }
                 if replacing {
-                    do { try trasher.trash(finalTarget) } catch {
+                    do { try await trasher.trash(finalTarget) } catch {
                         throw OperationError.trash(error, name: finalTarget.lastPathComponent)
                     }
                 }
