@@ -6,9 +6,10 @@ final class TrashErrorTests: TempDirTestCase {
         let cocoa = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError)
         let posix = NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError,
                             userInfo: [NSUnderlyingErrorKey: NSError(domain: NSPOSIXErrorDomain, code: Int(EPERM))])
-        for e in [cocoa, posix] {
+        for (e, detail) in [(cocoa, "NSCocoaErrorDomain 513"), (posix, "NSCocoaErrorDomain 512, NSPOSIXErrorDomain 1")] {
             let mapped = OperationError.trash(e, name: "IMG.HEIC")
-            XCTAssertEqual(mapped, .trashAccessDenied(name: "IMG.HEIC"))
+            XCTAssertEqual(mapped, .trashAccessDenied(name: "IMG.HEIC", detail: detail))
+            XCTAssertTrue(mapped.localizedDescription.contains(detail), "komunikat podaje kod systemowy")
             XCTAssertTrue(mapped.isAccessDenied)
             XCTAssertTrue(mapped.localizedDescription.contains("Pełny dostęp do dysku"))
         }
@@ -25,7 +26,7 @@ final class TrashErrorTests: TempDirTestCase {
         let f = try makeFile("a.txt")
         let t = FakeTrasher(bin: bin); t.shouldFail = true
         let r = await FileOperationEngine(trasher: t).run(FileOperation(kind: .trash, sources: [f]))
-        XCTAssertEqual(r.failures.first?.1, .trashAccessDenied(name: "a.txt"))
+        XCTAssertEqual(r.failures.first?.1, .trashAccessDenied(name: "a.txt", detail: "NSCocoaErrorDomain 513"))
         XCTAssertTrue(FileManager.default.fileExists(atPath: f.path), "plik nietknięty")
     }
 }

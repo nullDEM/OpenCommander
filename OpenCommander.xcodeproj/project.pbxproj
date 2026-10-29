@@ -46,6 +46,7 @@
 		81EC1369F51296BFF9B49AD7 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A58FA368EF8ED88A7F143805 /* InfoPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoPanel.swift; sourceTree = "<group>"; };
 		ADC5AD272A2C6CF80CC80434 /* ConnectionFormSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionFormSheet.swift; sourceTree = "<group>"; };
+		B03D796A0695E6DE4D726B7A /* OpenCommander.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenCommander.entitlements; sourceTree = "<group>"; };
 		BF69DC222746114ED8D8D05C /* AppCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommands.swift; sourceTree = "<group>"; };
 		C6E72ABF48F8165B002787B5 /* Sheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sheets.swift; sourceTree = "<group>"; };
 		DC9498D2F402D0112B71691F /* OperationsBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperationsBar.swift; sourceTree = "<group>"; };
@@ -71,6 +72,7 @@
 			isa = PBXGroup;
 			children = (
 				4CADCE370033D94E97C19D6C /* Assets.xcassets */,
+				B03D796A0695E6DE4D726B7A /* OpenCommander.entitlements */,
 				FBB7CBBCEFB703ADB596C28B /* App */,
 				465BD20F0649D466A880853D /* Features */,
 			);
@@ -286,6 +288,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = OpenCommander/OpenCommander.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -307,6 +310,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = OpenCommander/OpenCommander.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;

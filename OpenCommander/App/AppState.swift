@@ -98,7 +98,7 @@ final class AppState {
                                    sortKey: settings.sortKey, sortAscending: settings.sortAscending,
                                    showHidden: box.value?.showHidden ?? initialHidden)
                 p.remoteLister = { loc in try await connections.listing(loc) }
-                p.onStateChange = { [weak box, weak p] in if let p, let state = box?.value { state.panelChanged(p) } }
+                p.onStateChange = { [weak p] in if let p, let state = box.value { state.panelChanged(p) } }
                 return p
             }
         }

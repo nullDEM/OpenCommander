@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// Przenoszenie do Kosza jako zależność — w testach podmieniane, by nie ruszać prawdziwego Kosza.
@@ -8,8 +9,43 @@ public protocol Trashing: Sendable {
 public struct SystemTrasher: Trashing {
     public init() {}
     public func trash(_ url: URL) throws {
-        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        do {
+            try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        } catch {
+            // Przy odmowie dostępu (np. plik z `com.apple.macl` na Pulpicie iCloud) próbujemy drugiej drogi systemowej;
+            // gdy i ona zawiedzie, zgłaszamy pierwotny błąd. Inne błędy (np. brak pliku) nie są ponawiane.
+            guard case .permissionDenied = OperationError.map(error, item: url.lastPathComponent) else { throw error }
+            if Self.recycleViaWorkspace(url) || Self.trashViaFinder(url) { return }
+            throw error
+        }
     }
+
+    /// `NSWorkspace.recycle` działa przez system (nie tylko przez uprawnienia procesu); wywołanie blokuje do końca (z limitem czasu).
+    /// Nie wolno go wołać z głównego wątku, bo oczekiwanie zablokowałoby odpowiedź systemu.
+    private static func recycleViaWorkspace(_ url: URL) -> Bool {
+        if Thread.isMainThread { return false }
+        let done = DispatchSemaphore(value: 0)
+        let box = RecycleResult()
+        NSWorkspace.shared.recycle([url]) { trashed, error in
+            box.ok = error == nil && !trashed.isEmpty
+            done.signal()
+        }
+        guard done.wait(timeout: .now() + 30) == .success else { return false }
+        return box.ok
+    }
+
+    /// Ostatnia droga: prosimy Finder (ma własne uprawnienia do chronionych plików) o przeniesienie do Kosza — nie o trwałe usunięcie.
+    /// Wymaga zgody użytkownika na automatyzację Findera; sukces uznajemy dopiero, gdy pliku już nie ma w dotychczasowym miejscu.
+    private static func trashViaFinder(_ url: URL) -> Bool {
+        if Thread.isMainThread { return false }
+        let escaped = url.path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        var errorInfo: NSDictionary?
+        let script = NSAppleScript(source: "tell application \"Finder\" to delete POSIX file \"\(escaped)\"")
+        _ = script?.executeAndReturnError(&errorInfo)
+        return errorInfo == nil && !FileManager.default.fileExists(atPath: url.path)
+    }
+
+    private final class RecycleResult: @unchecked Sendable { var ok = false }
 }
 
 /// Wykonuje kopiowanie, przenoszenie i przenoszenie do Kosza.
