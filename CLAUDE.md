@@ -4,7 +4,7 @@ A dual-pane file manager for macOS (Swift, SwiftUI + AppKit): local files plus S
 
 ## Commands
 ```bash
-swift test --scratch-path /tmp/oc-spm     # Core (196) + Remote (87; SFTP/WebDAV/FTP/FTPS against local in-process servers)
+swift test --scratch-path /tmp/oc-spm     # Core (207) + Remote (87; SFTP/WebDAV/FTP/FTPS against local in-process servers)
 xcodegen generate                          # after changing project.yml
 xcodebuild -project OpenCommander.xcodeproj -scheme OpenCommander -destination 'platform=macOS' -derivedDataPath /tmp/oc-dd build
 ```

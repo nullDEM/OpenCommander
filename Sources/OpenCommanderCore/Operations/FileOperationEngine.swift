@@ -175,6 +175,40 @@ public struct FileOperationEngine: Sendable {
 
     // MARK: - Kopiowanie / przenoszenie
 
+    /// `copyfile` blokuje wątek przez cały czas kopiowania dużego pliku, więc nie robimy tego na wątku puli współbieżności
+    /// (zajęty wątek puli opóźniałby listowanie i inne zadania). Anulowanie przekazujemy jawną flagą, bo poza zadaniem
+    /// `Task.isCancelled` jest zawsze fałszem.
+    private func copyOffPool(from source: URL, to tmp: URL, reporter: ProgressReporter) async throws {
+        let flag = CancelFlag()
+        let sink = ReporterBox(reporter)
+        let clone = allowClone
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do {
+                        try FileCopier.copy(from: source, to: tmp, allowClone: clone, isCancelled: { flag.isSet }) { sink.reporter.itemBytes($0) }
+                        cont.resume()
+                    } catch {
+                        cont.resume(throwing: error)
+                    }
+                }
+            }
+        } onCancel: { flag.set() }
+    }
+
+    private final class CancelFlag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = false
+        var isSet: Bool { lock.withLock { value } }
+        func set() { lock.withLock { value = true } }
+    }
+
+    /// `ProgressReporter` jest używany sekwencyjnie: wołająca funkcja czeka (zawieszona), aż kopiowanie się skończy.
+    private final class ReporterBox: @unchecked Sendable {
+        let reporter: ProgressReporter
+        init(_ reporter: ProgressReporter) { self.reporter = reporter }
+    }
+
     private func transfer(_ source: URL, kind: OperationKind, into destDir: URL,
                           handler: ConflictHandler, sticky: inout ConflictResolution?,
                           reporter: ProgressReporter) async -> ItemOutcome {
@@ -236,7 +270,7 @@ public struct FileOperationEngine: Sendable {
             if renameBased {
                 try fm.moveItem(at: source, to: tmp)
             } else {
-                try FileCopier.copy(from: source, to: tmp, allowClone: allowClone) { reporter.itemBytes($0) }
+                try await copyOffPool(from: source, to: tmp, reporter: reporter)
             }
         } catch is CancellationError {
             try? fm.removeItem(at: tmp) // przerwana kopia: sprzątamy tylko własny plik tymczasowy

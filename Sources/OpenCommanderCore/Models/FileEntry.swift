@@ -15,6 +15,8 @@ public struct FileEntry: Identifiable, Hashable, Sendable {
     public let modificationDate: Date?
     public let kind: String
     public let contentType: UTType?
+    /// Nazwa złożona do porównań w filtrze (bez wielkości liter i diakrytyków) — liczona raz, przy tworzeniu wpisu.
+    public let foldedName: String
 
     /// Lokalnie: ścieżka. Zdalnie: pełny adres `ocremote://…` (ta sama ścieżka na dwóch serwerach to dwa różne elementy).
     public var id: String { url.isFileURL ? url.path : url.absoluteString }
@@ -38,6 +40,7 @@ public struct FileEntry: Identifiable, Hashable, Sendable {
         self.modificationDate = modificationDate
         self.kind = kind
         self.contentType = contentType
+        self.foldedName = FileFilter.fold(name)
     }
 }
 

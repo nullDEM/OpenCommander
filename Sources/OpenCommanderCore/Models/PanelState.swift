@@ -8,11 +8,14 @@ public final class PanelState: Identifiable {
     public let side: PanelSide
     public private(set) var location: URL
     public private(set) var entries: [FileEntry] = []
+    /// Wpisy widoczne po filtrze. Liczone przy zmianie listy, filtra lub wyników wyszukiwania (nie przy każdym odczycie).
+    /// Operacje działają wyłącznie na widocznych — nie na ukrytych filtrem.
+    public private(set) var visibleEntries: [FileEntry] = []
     public var selection: Set<FileEntry.ID> = []
     /// Filtr nazwy bieżącego folderu. Czyszczony przy zmianie folderu.
-    public var filterText = "" { didSet { if filterText != oldValue { pruneSelectionToVisible(); scheduleSearch() } } }
+    public var filterText = "" { didSet { if filterText != oldValue { recomputeVisible(); pruneSelectionToVisible(); scheduleSearch() } } }
     /// Gdy włączone, filtr przeszukuje też podfoldery (rekurencyjnie), a nie tylko bieżącą listę.
-    public var searchSubfolders = true { didSet { if searchSubfolders != oldValue { scheduleSearch(); pruneSelectionToVisible() } } }
+    public var searchSubfolders = true { didSet { if searchSubfolders != oldValue { scheduleSearch(); recomputeVisible(); pruneSelectionToVisible() } } }
     public private(set) var isSearching = false
     public private(set) var searchTruncated = false
     @ObservationIgnored private var searchResults: [FileEntry]?
@@ -31,6 +34,15 @@ public final class PanelState: Identifiable {
     /// Listowanie lokalizacji zdalnych (`ocremote://…`); ustawiane przez aplikację. Bez niego zdalny adres kończy się błędem.
     @ObservationIgnored public var remoteLister: (@Sendable (RemoteLocation) async throws -> [FileEntry])?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    @ObservationIgnored private var sortTask: Task<Void, Never>?
+    /// Zwiększane przy każdej zmianie kolejności i przy każdym załadowaniu — nieaktualne sortowanie w tle jest wtedy odrzucane.
+    @ObservationIgnored private var sortGeneration = 0
+    @ObservationIgnored private var lastWatcherReload = Date.distantPast
+    @ObservationIgnored private var deferredReload: Task<Void, Never>?
+    /// Od tylu wpisów sortujemy w tle (poniżej — od razu, bez przeskoku między wątkami).
+    nonisolated static let asyncSortThreshold = 1000
+    /// Najkrótszy odstęp między odświeżeniami wywołanymi przez obserwatora folderu (folder z ciągłym ruchem nie zaleje interfejsu).
+    static let minWatcherReloadInterval: TimeInterval = 0.5
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var watcher: DirectoryWatcher?
     @ObservationIgnored private var watchedPath: String?
@@ -59,18 +71,27 @@ public final class PanelState: Identifiable {
         if let r = location.remoteLocation { return !r.path.isRoot }
         return location.path != "/"
     }
-    /// Wpisy widoczne po filtrze. Operacje działają wyłącznie na widocznych — nie na ukrytych filtrem.
-    public var visibleEntries: [FileEntry] {
-        if isRecursiveSearch, let results = searchResults { return FileFilter.apply(results, text: filterText) }
-        return FileFilter.apply(entries, text: filterText)
-    }
     /// Filtr działa na całym drzewie pod bieżącym folderem (wyniki mogą leżeć w podfolderach).
     public var isRecursiveSearch: Bool { searchSubfolders && isFiltering && !isRemote }
     public var isFiltering: Bool { !filterText.trimmingCharacters(in: .whitespaces).isEmpty }
-    public var selectedEntries: [FileEntry] { visibleEntries.filter { selection.contains($0.id) } }
+    public var selectedEntries: [FileEntry] {
+        guard !selection.isEmpty else { return [] }
+        return visibleEntries.filter { selection.contains($0.id) }
+    }
     /// Suma rozmiarów zaznaczonych plików, których rozmiar jest znany (foldery nie są liczone).
-    public var knownSelectedSize: Int64 { selectedEntries.compactMap(\.size).reduce(0, +) }
-    public var selectedWithUnknownSize: Int { selectedEntries.filter { $0.size == nil }.count }
+    public var knownSelectedSize: Int64 {
+        guard !selection.isEmpty else { return 0 }
+        return visibleEntries.reduce(into: Int64(0)) { sum, e in if selection.contains(e.id) { sum += e.size ?? 0 } }
+    }
+    public var selectedWithUnknownSize: Int {
+        guard !selection.isEmpty else { return 0 }
+        return visibleEntries.reduce(into: 0) { count, e in if e.size == nil, selection.contains(e.id) { count += 1 } }
+    }
+
+    private func recomputeVisible() {
+        if isRecursiveSearch, let results = searchResults { visibleEntries = FileFilter.apply(results, text: filterText) }
+        else { visibleEntries = FileFilter.apply(entries, text: filterText) }
+    }
 
     // MARK: - Nawigacja
 
@@ -107,13 +128,41 @@ public final class PanelState: Identifiable {
     public func setSort(key: SortKey, ascending: Bool) {
         sortKey = key
         sortAscending = ascending
-        entries = FileSorter.sorted(entries, by: key, ascending: ascending)
-        searchResults = searchResults.map { FileSorter.sorted($0, by: key, ascending: ascending) }
+        sortGeneration &+= 1
+        let generation = sortGeneration
+        sortTask?.cancel()
+        if entries.count < Self.asyncSortThreshold && (searchResults?.count ?? 0) < Self.asyncSortThreshold {
+            entries = FileSorter.sorted(entries, by: key, ascending: ascending)
+            searchResults = searchResults.map { FileSorter.sorted($0, by: key, ascending: ascending) }
+            recomputeVisible()
+            onStateChange?()
+            return
+        }
+        // Duża lista: sortowanie `localizedStandardCompare` trwa długo, więc nie blokujemy głównego wątku.
         onStateChange?()
+        let current = entries, results = searchResults
+        sortTask = Task { [weak self] in
+            let sortedEntries = await Self.sortedInBackground(current, key: key, ascending: ascending)
+            var sortedResults: [FileEntry]?
+            if let results { sortedResults = await Self.sortedInBackground(results, key: key, ascending: ascending) }
+            guard let self, generation == self.sortGeneration else { return } // w międzyczasie zmieniono kolejność lub załadowano folder
+            self.entries = sortedEntries
+            self.searchResults = sortedResults
+            self.recomputeVisible()
+        }
     }
 
-    /// Czeka na zakończenie bieżącego ładowania (testy).
-    public func waitUntilIdle() async { await loadTask?.value }
+    /// Sortuje poza głównym wątkiem (małe listy — od razu).
+    nonisolated static func sortedInBackground(_ entries: [FileEntry], key: SortKey, ascending: Bool) async -> [FileEntry] {
+        if entries.count < asyncSortThreshold { return FileSorter.sorted(entries, by: key, ascending: ascending) }
+        return await Task.detached(priority: .userInitiated) { FileSorter.sorted(entries, by: key, ascending: ascending) }.value
+    }
+
+    /// Czeka na zakończenie bieżącego ładowania i sortowania w tle (testy).
+    public func waitUntilIdle() async {
+        await loadTask?.value
+        await sortTask?.value
+    }
 
     // MARK: - Ładowanie
 
@@ -133,7 +182,10 @@ public final class PanelState: Identifiable {
                     list = try await DirectoryLister.list(target, showHidden: hidden)
                 }
                 guard let self, gen == self.generation else { return } // nieaktualny wynik
-                self.commit(target, list, mode, select)
+                let key = self.sortKey, ascending = self.sortAscending
+                let sorted = await Self.sortedInBackground(list, key: key, ascending: ascending)
+                guard gen == self.generation else { return }
+                self.commit(target, sorted, sortedBy: (key, ascending), mode, select)
             } catch is CancellationError {
                 return
             } catch {
@@ -145,6 +197,7 @@ public final class PanelState: Identifiable {
     }
 
     private func pruneSelectionToVisible() {
+        guard !selection.isEmpty else { return }
         let visible = Set(visibleEntries.map(\.id))
         selection = selection.intersection(visible)
     }
@@ -160,7 +213,21 @@ public final class PanelState: Identifiable {
     }
 
     private func reloadIfIdle() {
-        guard !isLoading, location.isFileURL else { return }
+        guard location.isFileURL else { return }
+        let wait = Self.minWatcherReloadInterval - Date().timeIntervalSince(lastWatcherReload)
+        if wait > 0 {
+            // Za wcześnie po poprzednim odświeżeniu: jedno odroczone odświeżenie zbierze wszystkie zdarzenia z tego czasu.
+            guard deferredReload == nil else { return }
+            deferredReload = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+                guard !Task.isCancelled, let self else { return }
+                self.deferredReload = nil
+                self.reloadIfIdle()
+            }
+            return
+        }
+        guard !isLoading else { return }
+        lastWatcherReload = Date()
         reload()
     }
 
@@ -172,7 +239,7 @@ public final class PanelState: Identifiable {
         }
     }
 
-    private func commit(_ target: URL, _ list: [FileEntry], _ mode: HistoryMode, _ select: Set<FileEntry.ID>?) {
+    private func commit(_ target: URL, _ list: [FileEntry], sortedBy: (SortKey, Bool), _ mode: HistoryMode, _ select: Set<FileEntry.ID>?) {
         let changed = Self.key(target) != Self.key(location)
         switch mode {
         case .push where changed:
@@ -193,7 +260,12 @@ public final class PanelState: Identifiable {
             watcher?.stop(); watcher = nil; watchedPath = nil; freeSpace = nil
         }
         if changed { filterText = "" }
-        entries = FileSorter.sorted(list, by: sortKey, ascending: sortAscending)
+        // Kolejność mogła się zmienić w trakcie ładowania — wtedy sortujemy ponownie (rzadko).
+        let ordered = sortedBy == (sortKey, sortAscending) ? list : FileSorter.sorted(list, by: sortKey, ascending: sortAscending)
+        sortGeneration &+= 1 // odrzuca sortowanie w tle zlecone przed tym załadowaniem
+        let listChanged = ordered != entries
+        if listChanged { entries = ordered }  // odświeżenie bez zmian nie przerysowuje tabeli
+        if listChanged || changed { recomputeVisible() }
         loadError = nil
         isLoading = false
         let ids = Set(entries.map(\.id))
@@ -205,7 +277,8 @@ public final class PanelState: Identifiable {
             selection = selection.intersection(ids)
         }
         if isRecursiveSearch && !changed { scheduleSearch() }
-        onStateChange?()
+        // Zapis ustawień i „ostatnie” dotyczą zmiany lokalizacji; samo odświeżenie tej samej listy nie zmienia niczego do zapisania.
+        if changed { onStateChange?() }
     }
 
     /// Wyszukiwanie w podfolderach z krótkim opóźnieniem (pisanie nie uruchamia setek skanów).
@@ -213,6 +286,7 @@ public final class PanelState: Identifiable {
         searchTask?.cancel()
         guard isRecursiveSearch else {
             searchResults = nil; isSearching = false; searchTruncated = false
+            recomputeVisible()
             return
         }
         let query = filterText, root = location, hidden = showHidden
@@ -223,9 +297,16 @@ public final class PanelState: Identifiable {
             do {
                 let result = try await RecursiveSearch.search(root: root, query: query, showHidden: hidden)
                 guard let self, !Task.isCancelled, self.location == root else { return }
-                self.searchResults = FileSorter.sorted(result.entries, by: self.sortKey, ascending: self.sortAscending)
+                let key = self.sortKey, ascending = self.sortAscending
+                var sorted = await Self.sortedInBackground(result.entries, key: key, ascending: ascending)
+                guard !Task.isCancelled, self.location == root else { return }
+                if key != self.sortKey || ascending != self.sortAscending {
+                    sorted = FileSorter.sorted(sorted, by: self.sortKey, ascending: self.sortAscending)
+                }
+                self.searchResults = sorted
                 self.searchTruncated = result.truncated
                 self.isSearching = false
+                self.recomputeVisible()
                 self.pruneSelectionToVisible()
             } catch is CancellationError {
                 return

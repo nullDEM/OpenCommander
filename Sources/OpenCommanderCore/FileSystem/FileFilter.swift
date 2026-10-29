@@ -7,7 +7,7 @@ public enum FileFilter {
     public static func apply(_ entries: [FileEntry], text: String) -> [FileEntry] {
         let q = fold(text.trimmingCharacters(in: .whitespaces))
         guard !q.isEmpty else { return entries }
-        return entries.filter { fold($0.name).contains(q) }
+        return entries.filter { $0.foldedName.contains(q) }
     }
 
     static func fold(_ s: String) -> String {

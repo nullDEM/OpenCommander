@@ -50,20 +50,73 @@ public enum DuplicateFinder {
         let total = candidates.values.reduce(0) { $0 + $1.count }
         var done = 0
         var groups: [DuplicateGroup] = []
+        var lastEmit = 0.0
+        // Postęp nie częściej niż co 100 ms (przy setkach tysięcy plików każde zgłoszenie obciąża interfejs).
+        func emit(_ p: Progress, force: Bool = false) {
+            let now = ProcessInfo.processInfo.systemUptime
+            if force || now - lastEmit >= 0.1 { lastEmit = now; progress(p) }
+        }
+        var fullChecked = 0
         for (size, files) in candidates {
-            var byHash: [String: [FileEntryLite]] = [:]
+            // Krok 1: tani skrót początku i końca pliku. Różne skróty = na pewno różne pliki, bez czytania całości.
+            var byQuick: [String: [FileEntryLite]] = [:]
+            var quickIsComplete = false
             for f in files {
                 try Task.checkCancellation()
-                if let h = try? hash(f.url) { byHash[h, default: []].append(f) }
+                if let q = try? quickHash(f.url, size: size) {
+                    byQuick[q.hash, default: []].append(f)
+                    quickIsComplete = q.complete
+                }
                 done += 1
-                progress(.init(phase: "Porównywanie zawartości", done: done, total: total))
+                emit(.init(phase: "Porównywanie zawartości", done: done, total: total), force: done == total)
             }
-            for (_, same) in byHash where same.count > 1 {
-                let sorted = same.sorted { ($0.modificationDate ?? .distantFuture) < ($1.modificationDate ?? .distantFuture) }
-                groups.append(DuplicateGroup(size: size, files: sorted))
+            for (_, same) in byQuick where same.count > 1 {
+                if quickIsComplete {
+                    // Plik tak mały, że skrót objął całość — to już pełne porównanie.
+                    groups.append(DuplicateGroup(size: size, files: Self.oldestFirst(same)))
+                    continue
+                }
+                // Krok 2: pełny SHA-256 tylko dla plików, które zgadzają się na początku i końcu.
+                var byHash: [String: [FileEntryLite]] = [:]
+                for f in same {
+                    try Task.checkCancellation()
+                    if let h = try? hash(f.url) { byHash[h, default: []].append(f) }
+                    fullChecked += 1
+                    emit(.init(phase: "Sprawdzanie pełnej zawartości", done: fullChecked, total: 0))
+                }
+                for (_, identical) in byHash where identical.count > 1 {
+                    groups.append(DuplicateGroup(size: size, files: Self.oldestFirst(identical)))
+                }
             }
         }
         return groups.sorted { $0.wastedBytes > $1.wastedBytes }
+    }
+
+    private static func oldestFirst(_ files: [FileEntryLite]) -> [FileEntryLite] {
+        files.sorted { ($0.modificationDate ?? .distantFuture) < ($1.modificationDate ?? .distantFuture) }
+    }
+
+    static let quickBlock = 64 * 1024
+
+    /// Skrót początku i końca pliku (po `quickBlock` bajtów). Dla plików nie większych niż dwa bloki obejmuje całą zawartość
+    /// (`complete == true`) i jest wtedy równoważny pełnemu skrótowi.
+    static func quickHash(_ url: URL, size: Int64) throws -> (hash: String, complete: Bool) {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        let block = Int64(quickBlock)
+        let complete = size <= block * 2
+        if complete {
+            while let chunk = try handle.read(upToCount: quickBlock), !chunk.isEmpty {
+                try Task.checkCancellation()
+                hasher.update(data: chunk)
+            }
+        } else {
+            if let head = try handle.read(upToCount: quickBlock) { hasher.update(data: head) }
+            try handle.seek(toOffset: UInt64(size - block))
+            if let tail = try handle.read(upToCount: quickBlock) { hasher.update(data: tail) }
+        }
+        return (hasher.finalize().map { String(format: "%02x", $0) }.joined(), complete)
     }
 
     /// Pełny SHA-256 strumieniowo (bloki 1 MB), z możliwością przerwania.

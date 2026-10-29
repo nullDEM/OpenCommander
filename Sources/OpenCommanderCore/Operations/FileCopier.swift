@@ -9,21 +9,24 @@ enum FileCopier {
         var done: Int64 = 0
         var cancelled = false
         let onBytes: (Int64) -> Void
-        init(_ onBytes: @escaping (Int64) -> Void) { self.onBytes = onBytes }
+        let isCancelled: () -> Bool
+        init(_ onBytes: @escaping (Int64) -> Void, isCancelled: @escaping () -> Bool) { self.onBytes = onBytes; self.isCancelled = isCancelled }
     }
 
     /// Rzuca `CancellationError` po anulowaniu albo `NSError` (POSIX) przy błędzie.
     /// `onBytes` dostaje łączną liczbę bajtów skopiowanych w tym wywołaniu (tylko gdy dane są faktycznie kopiowane;
     /// przy klonowaniu postępu nie ma, bo operacja jest natychmiastowa).
-    static func copy(from src: URL, to dst: URL, allowClone: Bool = true, onBytes: @escaping (Int64) -> Void) throws {
+    /// `isCancelled` — domyślnie stan bieżącego zadania; przy wywołaniu poza zadaniem (wątek systemowy) trzeba podać własny.
+    static func copy(from src: URL, to dst: URL, allowClone: Bool = true, isCancelled: @escaping () -> Bool = { Task.isCancelled },
+                     onBytes: @escaping (Int64) -> Void) throws {
         guard let state = copyfile_state_alloc() else { throw NSError(domain: NSPOSIXErrorDomain, code: Int(ENOMEM)) }
         defer { copyfile_state_free(state) }
-        let ctx = Context(onBytes)
+        let ctx = Context(onBytes, isCancelled: isCancelled)
 
         let callback: copyfile_callback_t = { what, stage, state, _, _, ctxPtr in
             guard let ctxPtr else { return Int32(COPYFILE_CONTINUE) }
             let ctx = Unmanaged<Context>.fromOpaque(ctxPtr).takeUnretainedValue()
-            if Task.isCancelled { ctx.cancelled = true; return Int32(COPYFILE_QUIT) }
+            if ctx.isCancelled() { ctx.cancelled = true; return Int32(COPYFILE_QUIT) }
             if what == Int32(COPYFILE_RECURSE_ERROR) { return Int32(COPYFILE_QUIT) }
             if stage == Int32(COPYFILE_START) { ctx.lastCopied = 0 }
             if what == Int32(COPYFILE_COPY_DATA), stage == Int32(COPYFILE_PROGRESS) {
@@ -44,7 +47,7 @@ enum FileCopier {
         let rc = copyfile(src.path, dst.path, state, copyfile_flags_t(flags))
         if rc != 0 {
             let err = errno
-            if ctx.cancelled || Task.isCancelled { throw CancellationError() }
+            if ctx.cancelled || isCancelled() { throw CancellationError() }
             throw NSError(domain: NSPOSIXErrorDomain, code: Int(err))
         }
     }

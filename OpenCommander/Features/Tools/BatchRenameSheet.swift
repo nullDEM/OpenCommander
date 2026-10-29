@@ -9,11 +9,11 @@ struct BatchRenameSheet: View {
     @State private var rule = BatchRenameRule()
     @State private var working = false
     @State private var report: String?
-
-    private var plan: [BatchRenameItem] { BatchRename.plan(entries, rule: rule) }
+    @State private var items: [BatchRenameItem] = []
+    /// Plan jest liczony w tle (zawiera odczyty z dysku — `exists` dla każdej nowej nazwy); do czasu wyniku zmiana jest zablokowana.
+    @State private var planning = true
 
     var body: some View {
-        let items = plan
         let changes = items.filter { $0.status == .ok }.count
         let problems = items.filter { if case .problem = $0.status { return true } else { return false } }.count
         VStack(alignment: .leading, spacing: 12) {
@@ -75,17 +75,33 @@ struct BatchRenameSheet: View {
 
             if let report { Text(report).font(.callout).foregroundStyle(.orange) }
             HStack {
-                Text(problems > 0 ? "Popraw reguły — \(Polish.items(problems)) ma problem." : "Do zmiany: \(changes)")
-                    .font(.callout).foregroundStyle(problems > 0 ? .red : .secondary)
+                if planning {
+                    ProgressView().controlSize(.small)
+                    Text("Obliczanie podglądu…").font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Text(problems > 0 ? "Popraw reguły — \(Polish.items(problems)) ma problem." : "Do zmiany: \(changes)")
+                        .font(.callout).foregroundStyle(problems > 0 ? .red : .secondary)
+                }
                 Spacer()
                 Button("Anuluj", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Zmień nazwy") { apply(items) }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(working || changes == 0 || problems > 0)
+                    .disabled(working || planning || changes == 0 || problems > 0)
             }
         }
         .padding(20)
         .frame(minWidth: 760, minHeight: 520)
+        .task(id: rule) {
+            planning = true
+            // Pierwszy plan od razu; kolejne po krótkiej pauzie w pisaniu (każda zmiana reguły przerywa poprzednie zadanie).
+            if !items.isEmpty { try? await Task.sleep(nanoseconds: 150_000_000) }
+            guard !Task.isCancelled else { return }
+            let entries = entries, rule = rule
+            let result = await Task.detached(priority: .userInitiated) { BatchRename.plan(entries, rule: rule) }.value
+            guard !Task.isCancelled else { return }
+            items = result
+            planning = false
+        }
     }
 
     private func apply(_ items: [BatchRenameItem]) {
