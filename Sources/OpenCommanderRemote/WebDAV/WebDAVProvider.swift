@@ -34,7 +34,7 @@ public final class WebDAVProvider: FileProvider, @unchecked Sendable {
     // MARK: Adresy
 
     /// Adres zasobu: schemat + host + oryginalny (zakodowany) prefiks bazowy + zakodowane składowe ścieżki.
-    func url(for path: RemotePath, directory: Bool = false) -> URL {
+    func url(for path: RemotePath, directory: Bool = false) throws -> URL {
         var c = URLComponents()
         c.scheme = resolver.scheme
         c.host = resolver.host
@@ -47,7 +47,8 @@ public final class WebDAVProvider: FileProvider, @unchecked Sendable {
         var s = "/" + parts.joined(separator: "/")
         if directory && !s.hasSuffix("/") { s += "/" }
         c.percentEncodedPath = s
-        return c.url!
+        guard let url = c.url else { throw NetworkError.invalidProfile("nieprawidłowy adres WebDAV.") }
+        return url
     }
 
     // MARK: Połączenie
@@ -107,7 +108,8 @@ public final class WebDAVProvider: FileProvider, @unchecked Sendable {
         let handle = try FileHandle(forWritingTo: localFile)
         defer { try? handle.close() }
         do {
-            let r = try await http().send("GET", url(for: path), sink: { try handle.write(contentsOf: $0) }, onReceived: progress)
+            // Bez transparentnej kompresji: rozmiar zapisanych bajtów ma się zgadzać z `Content-Length`.
+            let r = try await http().send("GET", url(for: path), headers: ["Accept-Encoding": "identity"], sink: { try handle.write(contentsOf: $0) }, onReceived: progress)
             try check(r, path: path.string, ok: [200])
             if let len = r.headers["content-length"].flatMap(Int64.init) {
                 let written = (try? handle.offset()).map(Int64.init) ?? -1
@@ -138,7 +140,7 @@ public final class WebDAVProvider: FileProvider, @unchecked Sendable {
 
     public func rename(_ from: RemotePath, to: RemotePath) async throws {
         let isDir = (try? await stat(from))?.isDirectory ?? false
-        let headers = ["Destination": url(for: to, directory: isDir).absoluteString, "Overwrite": "F"]
+        let headers = ["Destination": try url(for: to, directory: isDir).absoluteString, "Overwrite": "F"]
         do {
             let r = try await http().send("MOVE", url(for: from, directory: isDir), headers: headers)
             if r.status == 412 { throw NetworkError.conflict(to.string) }
@@ -149,6 +151,10 @@ public final class WebDAVProvider: FileProvider, @unchecked Sendable {
     /// Usuwa plik albo PUSTY katalog (DELETE na kolekcji kasuje rekurencyjnie, więc najpierw sprawdzamy, czy jest pusta).
     public func delete(_ path: RemotePath, isDirectory: Bool) async throws {
         if isDirectory, !(try await list(path)).isEmpty { throw NetworkError.conflict("katalog „\(path.string)” nie jest pusty") }
+        if !isDirectory, let existing = try await stat(path), existing.isDirectory {
+            // DELETE na kolekcji kasuje ją razem z zawartością — wołający liczył na plik, więc odmawiamy (FTP i SFTP też by odmówiły).
+            throw NetworkError.conflict("„\(path.string)” jest folderem, a nie plikiem")
+        }
         do {
             let r = try await http().send("DELETE", url(for: path, directory: isDirectory))
             // 207 oznacza błędy per zasób — nie udajemy sukcesu.

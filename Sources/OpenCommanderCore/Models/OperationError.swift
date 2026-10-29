@@ -13,6 +13,8 @@ public enum OperationError: Error, Equatable, Sendable, LocalizedError {
     case nameExists(String)
     case sourceNotRemoved(name: String, reason: String)
     case trashFailed(name: String, reason: String)
+    /// macOS odmówił dostępu do elementu przy przenoszeniu do Kosza (np. ochrona plików z Wiadomości/AirDrop, prywatność folderu).
+    case trashAccessDenied(name: String)
     case ejectFailed(name: String, reason: String)
     case other(name: String, reason: String)
 
@@ -30,10 +32,26 @@ public enum OperationError: Error, Equatable, Sendable, LocalizedError {
         case .sourceNotRemoved(let n, let r):
             return "Skopiowano „\(n)”, ale nie udało się usunąć oryginału: \(r). Obie wersje pozostały."
         case .trashFailed(let n, let r): return "Nie udało się przenieść „\(n)” do Kosza: \(r)"
+        case .trashAccessDenied(let n):
+            return "Nie udało się przenieść „\(n)” do Kosza: macOS odmówił dostępu do tego elementu. Zwykle chroni go system (np. plik odebrany w Wiadomościach lub przez AirDrop albo folder objęty ochroną prywatności). Nadaj aplikacji Pełny dostęp do dysku (Ustawienia systemowe → Prywatność i ochrona) albo usuń element w Finderze."
         case .ejectFailed(let n, let r):
             return "Nie udało się wysunąć „\(n)”: \(r)\nZamknij pliki otwarte z tego woluminu (także w innych aplikacjach) i spróbuj ponownie."
         case .other(let n, let r): return "„\(n)”: \(r)"
         }
+    }
+
+    /// Czy błąd oznacza odmowę dostępu ze strony systemu — interfejs może wtedy pokazać „Pokaż w Finderze” i ustawienia prywatności.
+    public var isAccessDenied: Bool {
+        switch self {
+        case .permissionDenied, .trashAccessDenied: return true
+        default: return false
+        }
+    }
+
+    /// Błąd przeniesienia do Kosza: odmowę dostępu rozpoznajemy po kodzie systemowym, resztę opisujemy treścią błędu.
+    public static func trash(_ error: Error, name: String) -> OperationError {
+        if case .permissionDenied = map(error, item: name) { return .trashAccessDenied(name: name) }
+        return .trashFailed(name: name, reason: (error as NSError).localizedDescription)
     }
 
     /// Mapuje błąd systemowy na błąd domenowy.

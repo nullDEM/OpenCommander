@@ -58,9 +58,17 @@ public struct TrustedHostsStore: @unchecked Sendable {
         return base.appendingPathComponent(bundleID, isDirectory: true).appendingPathComponent("trusted_hosts.json")
     }
 
+    /// Plik, do którego trafia kopia nieczytelnej listy, zanim zostanie nadpisana.
+    public var backupURL: URL { url.appendingPathExtension("unreadable-backup") }
+
     public func load() -> TrustedHosts {
         lock.withLock {
-            guard let data = try? Data(contentsOf: url), let t = try? JSONDecoder.iso.decode(TrustedHosts.self, from: data) else { return TrustedHosts() }
+            guard let data = try? Data(contentsOf: url) else { return TrustedHosts() }
+            guard let t = try? JSONDecoder.iso.decode(TrustedHosts.self, from: data) else {
+                // Uszkodzona lista: zachowujemy ją, zamiast po cichu zgubić wszystkie zaufane serwery przy następnym zapisie.
+                if !FileManager.default.fileExists(atPath: backupURL.path) { try? data.write(to: backupURL, options: .atomic) }
+                return TrustedHosts()
+            }
             return t
         }
     }

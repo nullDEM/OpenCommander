@@ -26,8 +26,13 @@ enum DAVMultiStatusParser {
         guard data.count <= maxBytes else { throw NetworkError.invalidResponse("odpowiedź serwera jest zbyt duża") }
         // Nie dopuszczamy definicji typu dokumentu ani encji (ochrona przed XXE / „billion laughs”).
         // DOCTYPE może wystąpić wyłącznie przed elementem głównym, więc wystarczy początek dokumentu.
-        let head = String(decoding: data.prefix(65_536), as: UTF8.self).lowercased()
-        if head.contains("<!doctype") || head.contains("<!entity") {
+        // Dokumenty w UTF-16/32 (bajty NUL) przeszłyby kontrolę tekstową poniżej, a parser i tak by je odczytał — odrzucamy je.
+        if data.contains(0) {
+            throw NetworkError.invalidResponse("odpowiedź ma nieobsługiwane kodowanie (oczekiwano UTF-8)")
+        }
+        // Słowa kluczowe DTD w XML są wielkimi literami; szukamy w całym dokumencie (a nie tylko na początku),
+        // bo przed DOCTYPE może stać dowolnie długi komentarz.
+        for marker in ["<!DOCTYPE", "<!ENTITY"] where data.range(of: Data(marker.utf8)) != nil {
             throw NetworkError.invalidResponse("odpowiedź zawiera niedozwoloną definicję typu dokumentu")
         }
         let delegate = Delegate()

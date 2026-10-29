@@ -150,7 +150,8 @@ public final class OperationCenter {
     private func updateProgress(_ id: UUID, _ p: OperationProgress) {
         guard let idx = jobs.firstIndex(where: { $0.id == id }), !jobs[idx].state.isFinished else { return }
         // Zadania aktualizacji mogą dotrzeć nie po kolei — nie cofamy postępu.
-        guard p.bytesDone >= jobs[idx].progress.bytesDone || p.completedItems >= jobs[idx].progress.completedItems else { return }
+        let old = jobs[idx].progress
+        guard p.completedItems > old.completedItems || (p.completedItems == old.completedItems && p.bytesDone >= old.bytesDone) else { return }
         jobs[idx].progress = p
         let now = Date()
         guard let last = jobs[idx].lastSampleAt else {

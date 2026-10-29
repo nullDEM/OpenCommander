@@ -57,11 +57,14 @@ enum FTPListParser {
     /// `YYYYMMDDHHMMSS[.sss]` w UTC.
     static func parseMLSTTime(_ s: String) -> Date? {
         let digits = s.split(separator: ".").first.map(String.init) ?? s
-        guard digits.count == 14, digits.allSatisfy(\.isNumber) else { return nil }
+        // Tylko cyfry ASCII: `isNumber` przepuszcza też np. „²” czy cyfry arabsko-indyjskie, a dane pochodzą od niezaufanego serwera.
+        guard digits.count == 14, digits.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
         var c = DateComponents(); c.timeZone = TimeZone(identifier: "UTC")
         let a = Array(digits)
-        func n(_ r: Range<Int>) -> Int { Int(String(a[r]))! }
-        c.year = n(0..<4); c.month = n(4..<6); c.day = n(6..<8); c.hour = n(8..<10); c.minute = n(10..<12); c.second = n(12..<14)
+        func n(_ r: Range<Int>) -> Int? { Int(String(a[r])) }
+        guard let year = n(0..<4), let month = n(4..<6), let day = n(6..<8),
+              let hour = n(8..<10), let minute = n(10..<12), let second = n(12..<14) else { return nil }
+        c.year = year; c.month = month; c.day = day; c.hour = hour; c.minute = minute; c.second = second
         var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
         return cal.date(from: c)
     }
@@ -111,7 +114,9 @@ enum FTPListParser {
         var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
         var c = DateComponents(); c.timeZone = cal.timeZone; c.month = mi + 1; c.day = d
         if yearOrTime.contains(":") {
-            let t = yearOrTime.split(separator: ":"); c.hour = Int(t[0]); c.minute = Int(t[1])
+            let t = yearOrTime.split(separator: ":")
+            guard t.count == 2 else { return nil }
+            c.hour = Int(t[0]); c.minute = Int(t[1])
             let year = cal.component(.year, from: now); c.year = year
             // Bez roku: jeśli data wypadłaby w przyszłości, to chodzi o rok poprzedni.
             if let date = cal.date(from: c), date > now.addingTimeInterval(24 * 3600) { c.year = year - 1 }
@@ -121,11 +126,12 @@ enum FTPListParser {
 
     private static func parseDOS(_ line: String) -> RemoteEntry? {
         guard let g = groups(dosRegex, line) else { return nil }
-        var year = Int(g[2])!; if g[2].count == 2 { year += year < 70 ? 2000 : 1900 }
-        var hour = Int(g[3])!
+        // `\d` w ICU dopasowuje też cyfry spoza ASCII — wtedy `Int` zwraca nil i wiersz jest pomijany zamiast zatrzymać aplikację.
+        guard var year = Int(g[2]), var hour = Int(g[3]), let month = Int(g[0]), let day = Int(g[1]), let minute = Int(g[4]) else { return nil }
+        if g[2].count == 2 { year += year < 70 ? 2000 : 1900 }
         if g[5] == "PM", hour < 12 { hour += 12 }; if g[5] == "AM", hour == 12 { hour = 0 }
         var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
-        let date = cal.date(from: DateComponents(timeZone: cal.timeZone, year: year, month: Int(g[0]), day: Int(g[1]), hour: hour, minute: Int(g[4])))
+        let date = cal.date(from: DateComponents(timeZone: cal.timeZone, year: year, month: month, day: day, hour: hour, minute: minute))
         let isDir = g[6] == "<DIR>"
         return RemoteEntry(name: g[7], kind: isDir ? .directory : .file, size: isDir ? nil : Int64(g[6]), modified: date)
     }

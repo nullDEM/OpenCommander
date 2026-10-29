@@ -13,6 +13,12 @@ final class FakeProvider: FileProvider, @unchecked Sendable {
     var failUploadWith: Error = NetworkError.connectionLost
     var corruptDownloads = false           // zwraca o 1 bajt mniej niż zadeklarowany rozmiar
     var uploadDelay: TimeInterval = 0
+    /// Zwraca true, gdy dany `rename` ma się nie udać (zerwane połączenie).
+    var failRename: (@Sendable (RemotePath, RemotePath) -> Bool)?
+    var connectDelay: TimeInterval = 0
+    /// Połączenie ignoruje anulowanie (jak provider, który kończy `connect` mimo `Task.cancel`).
+    var connectSwallowsCancellation = false
+    private(set) var disconnectCalls = 0
     var injectedListNames: [String: [RemoteEntry]] = [:]   // path → surowe wpisy (np. złośliwe nazwy)
     private(set) var log: [String] = []
 
@@ -35,8 +41,12 @@ final class FakeProvider: FileProvider, @unchecked Sendable {
     var tempLeftovers: [String] { allPaths.filter { $0.contains(".opencommander-tmp-") } }
     var logLines: [String] { lock.withLock { log } }
 
-    func connect() async throws {}
-    func disconnect() async {}
+    func connect() async throws {
+        guard connectDelay > 0 else { return }
+        if connectSwallowsCancellation { try? await Task.sleep(nanoseconds: UInt64(connectDelay * 1e9)) }
+        else { try await Task.sleep(nanoseconds: UInt64(connectDelay * 1e9)) }
+    }
+    func disconnect() async { lock.withLock { disconnectCalls += 1 } }
     func initialPath() async throws -> RemotePath { .root }
 
     func list(_ path: RemotePath) async throws -> [RemoteEntry] {
@@ -104,6 +114,7 @@ final class FakeProvider: FileProvider, @unchecked Sendable {
     func rename(_ from: RemotePath, to: RemotePath) async throws {
         try lock.withLock {
             log.append("rename \(from) → \(to)")
+            if failRename?(from, to) == true { throw NetworkError.connectionLost }
             guard let n = tree[from.string] else { throw NetworkError.notFound(from.string) }
             guard tree[to.string] == nil else { throw NetworkError.conflict(to.string) }
             tree[to.string] = n; tree[from.string] = nil

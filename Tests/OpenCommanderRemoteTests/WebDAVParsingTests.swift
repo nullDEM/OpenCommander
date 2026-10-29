@@ -158,9 +158,30 @@ final class WebDAVParsingTests: XCTestCase {
         let p = ConnectionProfile(name: "x", proto: .webdav, username: "u", baseURL: "https://dav.example.test/remote.php/dav/files/ola/")
         let ctx = ProviderContext(credentials: ConnectionCredentials(password: "p"), hostKeyVerifier: HostKeyVerifier(store: TrustedHostsStore(url: URL(fileURLWithPath: "/dev/null"))) { _ in false })
         let prov = try WebDAVProvider(profile: p, context: ctx)
-        let u = prov.url(for: RemotePath(parsing: "/Moje dokumenty/raport #1 (100%) ?&.txt"))
+        let u = try prov.url(for: RemotePath(parsing: "/Moje dokumenty/raport #1 (100%) ?&.txt"))
         XCTAssertEqual(u.absoluteString, "https://dav.example.test/remote.php/dav/files/ola/Moje%20dokumenty/raport%20%231%20%28100%25%29%20%3F%26.txt")
-        XCTAssertTrue(prov.url(for: RemotePath(parsing: "/a"), directory: true).absoluteString.hasSuffix("/a/"))
-        XCTAssertEqual(prov.url(for: .root, directory: true).absoluteString, "https://dav.example.test/remote.php/dav/files/ola/")
+        let dirURL = try prov.url(for: RemotePath(parsing: "/a"), directory: true)
+        let rootURL = try prov.url(for: .root, directory: true)
+        XCTAssertTrue(dirURL.absoluteString.hasSuffix("/a/"))
+        XCTAssertEqual(rootURL.absoluteString, "https://dav.example.test/remote.php/dav/files/ola/")
+    }
+
+    // MARK: Zabezpieczenie przed DTD obejmuje cały dokument
+
+    func testDoctypeAfterLongCommentIsRejected() {
+        let padding = String(repeating: "x", count: 100_000)
+        let xml = "<?xml version=\"1.0\"?><!-- \(padding) --><!DOCTYPE foo [<!ENTITY e \"a\">]><d:multistatus xmlns:d=\"DAV:\"/>"
+        XCTAssertThrowsError(try DAVMultiStatusParser.parse(Data(xml.utf8)))
+    }
+
+    func testUTF16DocumentIsRejected() {
+        let xml = "<?xml version=\"1.0\" encoding=\"UTF-16\"?><!DOCTYPE foo [<!ENTITY e \"a\">]><d:multistatus xmlns:d=\"DAV:\"/>"
+        let data = xml.data(using: .utf16)!
+        XCTAssertThrowsError(try DAVMultiStatusParser.parse(data))
+    }
+
+    func testPlainMultiStatusStillParses() throws {
+        let xml = "<?xml version=\"1.0\"?><d:multistatus xmlns:d=\"DAV:\"><d:response><d:href>/a.txt</d:href></d:response></d:multistatus>"
+        XCTAssertEqual(try DAVMultiStatusParser.parse(Data(xml.utf8)).count, 1)
     }
 }

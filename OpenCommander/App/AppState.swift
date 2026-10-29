@@ -29,29 +29,6 @@ enum ActiveSheet: Identifiable {
     }
 }
 
-/// Pytanie o zaufanie do klucza serwera (czeka na decyzję użytkownika).
-@MainActor @Observable
-final class HostKeyRequest: Identifiable {
-    let id = UUID()
-    let info: HostKeyInfo
-    @ObservationIgnored private var continuation: CheckedContinuation<Bool, Never>?
-    init(info: HostKeyInfo, continuation: CheckedContinuation<Bool, Never>) { self.info = info; self.continuation = continuation }
-    func answer(_ trust: Bool) { continuation?.resume(returning: trust); continuation = nil }
-}
-
-/// Pytanie o hasło lub passphrase (nie jest zapisane); odpowiedź żyje tylko na czas sesji.
-@MainActor @Observable
-final class CredentialRequest: Identifiable {
-    let id = UUID()
-    let profile: ConnectionProfile
-    let kind: CredentialKind
-    @ObservationIgnored private var continuation: CheckedContinuation<String?, Never>?
-    init(profile: ConnectionProfile, kind: CredentialKind, continuation: CheckedContinuation<String?, Never>) {
-        self.profile = profile; self.kind = kind; self.continuation = continuation
-    }
-    func answer(_ value: String?) { continuation?.resume(returning: value); continuation = nil }
-}
-
 /// Zdalne usuwanie czeka na potwierdzenie: serwer, ścieżka, liczba elementów.
 struct RemoteDeleteRequest: Identifiable {
     let id = UUID()
@@ -66,8 +43,9 @@ final class AppState {
     let tabsRight: PanelTabs
     let operations: OperationCenter
     let connections: ConnectionManager
-    var hostKeyRequest: HostKeyRequest?
-    var credentialRequest: CredentialRequest?
+    /// Pytania o zaufanie do klucza serwera i o hasło (po odpowiedzi znikają, kolejne czekają w kolejce).
+    let hostKeyPrompts = PromptQueue<HostKeyInfo, Bool>()
+    let credentialPrompts = PromptQueue<CredentialPrompt, String?>()
     var pendingRemoteDelete: RemoteDeleteRequest?
     @ObservationIgnored private let journal = TempJournal.default
 
@@ -87,6 +65,9 @@ final class AppState {
     /// Zwiększany przez ⌘F — aktywny panel pokazuje i fokusuje pasek filtra.
     private(set) var filterFocusToken = 0
     @ObservationIgnored private var lastRecorded: [PanelSide: String] = [:]
+    /// Ulubione, które istnieją na dysku. Sprawdzane w tle: `fileExists` na odłączonym udziale sieciowym potrafi zawiesić wątek.
+    private(set) var availableFavorites: Set<String> = []
+    @ObservationIgnored private var availabilityTask: Task<Void, Never>?
 
     @ObservationIgnored private let store = SettingsStore()
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
@@ -101,6 +82,7 @@ final class AppState {
         showHidden = s.showHidden
         operationsExpanded = s.operationsExpanded
         favorites = s.favorites.map(Self.normalized)
+        availableFavorites = Set(s.favorites.map { Self.normalized($0).path })   // do czasu sprawdzenia w tle zakładamy, że istnieją
         recents = s.recents.map(Self.normalized)
         showInspector = s.inspectorVisible
         active = s.activePanel
@@ -125,15 +107,17 @@ final class AppState {
         tabsRight = PanelTabs(side: .right, settings: s.rightTabs.isEmpty ? [s.right] : s.rightTabs,
                               activeIndex: s.rightActiveTab, factory: factory(.right))
         box.value = self
-        connections.hostKeyPrompt = { [weak self] info in await self?.askHostKey(info) ?? false }
-        connections.credentialPrompt = { [weak self] profile, kind in await self?.askCredential(profile, kind) }
+        let hostKeys = hostKeyPrompts, credentials = credentialPrompts
+        connections.hostKeyPrompt = { info in await hostKeys.ask(info) }
+        connections.credentialPrompt = { profile, kind in await credentials.ask(CredentialPrompt(profile: profile, kind: kind)) }
         operations.onJobFinished = { [weak self] job in self?.jobFinished(job) }
         reportLeftovers(journal.sweep())
+        refreshFavoriteAvailability()
 
         let nc = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification] {
             observers.append(nc.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.volumes = Locations.mountedVolumes() }
+                MainActor.assumeIsolated { self?.volumes = Locations.mountedVolumes(); self?.refreshFavoriteAvailability() }
             })
         }
     }
@@ -152,17 +136,6 @@ final class AppState {
     }
 
     // MARK: - Połączenia zdalne
-
-    /// Pytania są kolejkowane: kolejne czeka, aż poprzednie zostanie rozstrzygnięte.
-    private func askHostKey(_ info: HostKeyInfo) async -> Bool {
-        while hostKeyRequest != nil { try? await Task.sleep(nanoseconds: 100_000_000) }
-        return await withCheckedContinuation { cont in hostKeyRequest = HostKeyRequest(info: info, continuation: cont) }
-    }
-
-    private func askCredential(_ profile: ConnectionProfile, _ kind: CredentialKind) async -> String? {
-        while credentialRequest != nil { try? await Task.sleep(nanoseconds: 100_000_000) }
-        return await withCheckedContinuation { cont in credentialRequest = CredentialRequest(profile: profile, kind: kind, continuation: cont) }
-    }
 
     /// Łączy (jeśli trzeba) i otwiera katalog początkowy serwera w aktywnym panelu.
     func openConnection(_ id: UUID) {
@@ -212,7 +185,7 @@ final class AppState {
     var otherPanel: PanelState { panel(active.other) }
     var isBusyWithDialog: Bool {
         sheet != nil || !pendingTrash.isEmpty || operations.pendingConflict != nil
-            || hostKeyRequest != nil || credentialRequest != nil || pendingRemoteDelete != nil
+            || hostKeyPrompts.current != nil || credentialPrompts.current != nil || pendingRemoteDelete != nil
     }
 
     func switchPanel() { active = active.other }
@@ -235,6 +208,7 @@ final class AppState {
     func newTab() { if activeTabs.addTab() == nil { alertMessage = "Osiągnięto limit \(PanelTabs.maxTabs) kart w panelu." }; persist() }
 
     func openInNewTab(_ url: URL) {
+        guard url.isFileURL else { return }   // karty zdalne nie są obsługiwane — `url.path` zdalnego adresu byłby ścieżką lokalną
         let p = activePanel
         if activeTabs.addTab(from: PanelSettings(path: url.path, sortKey: p.sortKey, sortAscending: p.sortAscending)) == nil {
             alertMessage = "Osiągnięto limit \(PanelTabs.maxTabs) kart w panelu."
@@ -307,16 +281,28 @@ final class AppState {
     /// Jedna postać ścieżki (np. `/private/tmp` → `/tmp`), żeby ta sama lokalizacja nie dublowała się na listach.
     private static func normalized(_ path: String) -> URL { URL(fileURLWithPath: path).standardizedFileURL }
 
+    func refreshFavoriteAvailability() {
+        let paths = favorites.map(\.path)
+        availabilityTask?.cancel()
+        availabilityTask = Task { [weak self] in
+            let existing = await Task.detached(priority: .utility) {
+                Set(paths.filter { FileManager.default.fileExists(atPath: $0) })
+            }.value
+            guard !Task.isCancelled else { return }
+            self?.availableFavorites = existing
+        }
+    }
+
     func isFavorite(_ url: URL) -> Bool { favorites.contains { $0.path == url.standardizedFileURL.path } }
 
     func addFavorite(_ url: URL) {
         guard !isFavorite(url) else { return }
-        favorites.append(url.standardizedFileURL); persist()
+        favorites.append(url.standardizedFileURL); persist(); refreshFavoriteAvailability()
     }
 
     func removeFavorite(_ url: URL) {
         let path = url.standardizedFileURL.path
-        favorites.removeAll { $0.path == path }; persist()
+        favorites.removeAll { $0.path == path }; persist(); refreshFavoriteAvailability()
     }
 
     func toggleFavoriteForActivePanel() {
@@ -348,7 +334,7 @@ final class AppState {
         persist()
     }
 
-    func refreshAll() { left.reload(); right.reload(); volumes = Locations.mountedVolumes() } // karty w tle odświeżają się przy wyborze
+    func refreshAll() { left.reload(); right.reload(); volumes = Locations.mountedVolumes(); refreshFavoriteAvailability() } // karty w tle odświeżają się przy wyborze
 
     private func jobFinished(_ job: OperationCenter.Job) {
         refreshAll()

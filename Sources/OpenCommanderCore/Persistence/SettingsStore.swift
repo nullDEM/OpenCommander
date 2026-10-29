@@ -70,9 +70,15 @@ public struct SettingsStore {
         self.key = key
     }
 
+    public var backupKey: String { key + ".unreadable-backup" }
+
     public func load() -> AppSettings {
-        guard let data = defaults.data(forKey: key),
-              let settings = try? JSONDecoder().decode(AppSettings.self, from: data) else { return .defaults }
+        guard let data = defaults.data(forKey: key) else { return .defaults }
+        guard let settings = try? JSONDecoder().decode(AppSettings.self, from: data) else {
+            // Nieczytelne ustawienia (np. po zmianie formatu) zachowujemy, zanim następny zapis je nadpisze.
+            if defaults.data(forKey: backupKey) == nil { defaults.set(data, forKey: backupKey) }
+            return .defaults
+        }
         return settings
     }
 

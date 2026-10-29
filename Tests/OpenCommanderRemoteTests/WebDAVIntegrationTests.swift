@@ -345,4 +345,33 @@ final class WebDAVIntegrationTests: XCTestCase {
         if case .failure(let e) = test { XCTFail("\(e)") }
         await m.disconnect(saved.id)
     }
+
+    // MARK: Poprawki z przeglądu
+
+    func testDeletingFileNeverRemovesACollectionRecursively() async throws {
+        try await start()
+        let dir = root.appendingPathComponent("folder")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try write("wazne.txt", "WAŻNE", in: dir)
+        let p = try await provider()
+
+        do {
+            try await p.delete(RemotePath(parsing: "/folder"), isDirectory: false)
+            XCTFail("DELETE na kolekcji wołany jako na plik musi zostać odrzucony")
+        } catch let e as NetworkError {
+            guard case .conflict = e else { return XCTFail("oczekiwano conflict, jest \(e)") }
+        }
+        XCTAssertEqual(try String(contentsOf: dir.appendingPathComponent("wazne.txt"), encoding: .utf8), "WAŻNE", "zawartość folderu nietknięta")
+        XCTAssertFalse(server.requests.contains { $0.method == "DELETE" }, "żądanie DELETE w ogóle nie wyszło")
+    }
+
+    func testDownloadAsksForUncompressedContent() async throws {
+        try await start()
+        try write("a.txt", "treść")
+        let p = try await provider()
+        let out = work.appendingPathComponent("a.txt")
+        try await p.download(RemotePath(parsing: "/a.txt"), to: out) { _ in }
+        let get = try XCTUnwrap(server.requests.first { $0.method == "GET" })
+        XCTAssertEqual(get.headers["accept-encoding"], "identity")
+    }
 }

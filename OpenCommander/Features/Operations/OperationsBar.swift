@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import OpenCommanderCore
 
 /// Zwijany obszar kolejki operacji. Postęp jest liczony w elementach, nie w bajtach.
@@ -67,6 +68,17 @@ private struct JobRow: View {
             if let report = job.report {
                 ForEach(Array(report.failures.enumerated()), id: \.offset) { _, failure in
                     Text(failure.1.localizedDescription).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+                    if failure.1.isAccessDenied, failure.0.isFileURL {
+                        HStack(spacing: 10) {
+                            Button("Pokaż w Finderze") { NSWorkspace.shared.activateFileViewerSelecting([failure.0]) }
+                            Button("Otwórz ustawienia prywatności") {
+                                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                        }
+                        .font(.caption).buttonStyle(.link)
+                    }
                 }
                 if job.state.isFinished, !report.failures.isEmpty, job.state != .cancelled {
                     Button("Ponów nieudane od początku") { ops.retryFailed(job.id) }

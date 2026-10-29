@@ -86,7 +86,7 @@ public struct ConnectionProfile: Codable, Identifiable, Equatable, Sendable {
     }
 
     /// Adres WebDAV po walidacji (https albo http z jawną zgodą).
-    public var webDAVURL: URL? { baseURL.flatMap(URL.init(string:)) }
+    public var webDAVURL: URL? { baseURL.flatMap { URL(string: $0.trimmingCharacters(in: .whitespacesAndNewlines)) } }
 
     /// Zwraca pierwszy znaleziony problem albo `nil`, gdy profil jest poprawny.
     public func validationError() -> String? {
@@ -106,6 +106,9 @@ public struct ConnectionProfile: Codable, Identifiable, Equatable, Sendable {
                 return "obsługiwane adresy WebDAV: https:// (oraz http:// z jawną zgodą)."
             }
             if let p = u.port, !(1...65535).contains(p) { return "port w adresie jest nieprawidłowy." }
+            if auth == .password && username.trimmingCharacters(in: .whitespaces).isEmpty {
+                return "podaj nazwę użytkownika albo wybierz logowanie anonimowe."
+            }
         case .sftp, .ftp, .ftps:
             let h = host.trimmingCharacters(in: .whitespaces)
             if h.isEmpty { return "podaj adres serwera." }

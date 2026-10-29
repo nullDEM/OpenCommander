@@ -44,22 +44,26 @@ public final class SFTPProvider: FileProvider, @unchecked Sendable {
     private func call<T: Sendable>(_ body: @escaping @Sendable () async throws -> T) async throws -> T {
         let gate = self.gate, timeout = operationTimeout
         let once = OnceFlag()
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<T, Error>) in
-                let work = Task {
-                    do { let v = try await gate.run(body); if once.fire() { cont.resume(returning: v) } }
-                    catch { if once.fire() { cont.resume(throwing: error) } }
-                }
-                Task { [weak self] in
-                    try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                    if once.fire() {
-                        work.cancel()
-                        cont.resume(throwing: NetworkError.timeout)
-                        await self?.disconnect()   // zamknięcie kanału kończy też zawieszone żądanie i zwalnia mutex
-                    }
+        // Anulowanie zadania wołającego nie przerywa żądania w locie (stan kanału byłby nieznany) — kończy się je między kawałkami
+        // transferu (`Task.checkCancellation`) albo limitem czasu.
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<T, Error>) in
+            // Czasomierz jest anulowany, gdy żądanie się zakończy — inaczej każdy kawałek transferu zostawiałby
+            // uśpione zadanie na `timeout` sekund (przy 1 GB to dziesiątki tysięcy zadań naraz).
+            let timer = Task { [weak self] in
+                do { try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000)) } catch { return }
+                if once.fire() {
+                    once.cancelWork()
+                    cont.resume(throwing: NetworkError.timeout)
+                    await self?.disconnect()   // zamknięcie kanału kończy też zawieszone żądanie i zwalnia mutex
                 }
             }
-        } onCancel: { once.cancelRequested = true }
+            let work = Task {
+                do { let v = try await gate.run(body); if once.fire() { cont.resume(returning: v) } }
+                catch { if once.fire() { cont.resume(throwing: error) } }
+                timer.cancel()
+            }
+            once.attach(work)
+        }
     }
 
     // MARK: Połączenie
@@ -75,7 +79,11 @@ public final class SFTPProvider: FileProvider, @unchecked Sendable {
         settings.connectTimeout = .seconds(Int64(profile.connectTimeoutSeconds))
         do {
             let client = try await SSHClient.connect(to: settings)
-            let sftp = try await client.openSFTP()
+            let sftp: SFTPClient
+            do { sftp = try await client.openSFTP() } catch {
+                try? await client.close()   // połączenie SSH już istnieje — nie zostawiamy go otwartego
+                throw error
+            }
             lock.withLock { self.ssh = client; self.sftp = sftp }
         } catch {
             // Błąd zaufania do klucza hosta ma pierwszeństwo przed ogólnym błędem połączenia.
@@ -123,7 +131,10 @@ public final class SFTPProvider: FileProvider, @unchecked Sendable {
                 }
             } catch let e as SSHKeyDetectionError {
                 switch e {
-                case .passphraseRequired, .encryptedPrivateKey, .incorrectPassphrase: throw NetworkError.authenticationFailed
+                case .passphraseRequired, .encryptedPrivateKey:
+                    throw NetworkError.invalidProfile("klucz prywatny jest zaszyfrowany — wpisz jego hasło (passphrase) w edycji połączenia.")
+                case .incorrectPassphrase:
+                    throw NetworkError.invalidProfile("nieprawidłowe hasło (passphrase) do klucza prywatnego.")
                 default: throw NetworkError.invalidProfile("nie można odczytać klucza prywatnego (\(e.localizedDescription)).")
                 }
             }
@@ -316,8 +327,11 @@ public final class SFTPProvider: FileProvider, @unchecked Sendable {
 /// Jednorazowa flaga (wyścig odpowiedź/timeout: wygrywa pierwszy).
 final class OnceFlag: @unchecked Sendable {
     private let lock = NSLock(); private var done = false
-    var cancelRequested = false
+    private var work: Task<Void, Never>?
     func fire() -> Bool { lock.withLock { if done { return false }; done = true; return true } }
+    /// Po przekroczeniu limitu czasu przerywamy zadanie robocze (jeśli już się zakończyło, nic się nie dzieje).
+    func attach(_ task: Task<Void, Never>) { lock.withLock { work = task } }
+    func cancelWork() { lock.withLock { work }?.cancel() }
 }
 
 /// Przechowuje błąd zaufania do klucza hosta, żeby wypłynął zamiast ogólnego błędu połączenia.

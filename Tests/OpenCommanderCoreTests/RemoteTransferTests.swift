@@ -81,9 +81,13 @@ final class RemoteTransferTests: TempDirTestCase {
         XCTAssertEqual(provider.contents("/in/a.txt"), "NOWY")
         let log = provider.logLines
         let up = log.firstIndex { $0.hasPrefix("upload") && $0.contains(".opencommander-tmp-") }
-        let del = log.firstIndex { $0 == "delete /in/a.txt" }
-        XCTAssertNotNil(up); XCTAssertNotNil(del)
-        XCTAssertLessThan(up!, del!, "nowa wersja jest wysłana, zanim stara zostanie usunięta")
+        // Stara wersja nie jest kasowana, tylko dostaje nazwę zapasową; usunięcie zapasu następuje po udanej podmianie.
+        let backup = log.firstIndex { $0.hasPrefix("rename /in/a.txt →") && $0.contains(".opencommander-tmp-old-") }
+        let final = log.firstIndex { $0.hasSuffix("→ /in/a.txt") }
+        XCTAssertNotNil(up); XCTAssertNotNil(backup); XCTAssertNotNil(final)
+        XCTAssertLessThan(up!, backup!, "nowa wersja jest wysłana, zanim stara zostanie ruszona")
+        XCTAssertLessThan(backup!, final!)
+        XCTAssertFalse(log.contains("delete /in/a.txt"), "stary plik nigdy nie jest kasowany pod własną nazwą")
         XCTAssertTrue(provider.tempLeftovers.isEmpty)
     }
 
@@ -269,6 +273,60 @@ final class RemoteTransferTests: TempDirTestCase {
         let second = await center.jobs[1]
         XCTAssertEqual(second.operation.sources, [bad], "ponawiamy tylko nieudane elementy")
         XCTAssertEqual(provider.contents("/in/bad.txt"), String(repeating: "b", count: 50))
+    }
+
+    // MARK: Zastępowanie pliku na serwerze — nieudana zmiana nazwy nie może kasować danych
+
+    private static let tmpPrefix = TempJournal.tempPrefix
+
+    func testReplaceWithFailingFinalRenameKeepsOldRemoteFile() async throws {
+        provider.seedFile("/in/a.txt", "STARA")
+        // Zawodzi tylko tmp → docelowa; przywrócenie kopii zapasowej działa.
+        provider.failRename = { from, _ in
+            let n = from.lastComponent ?? ""
+            return n.hasPrefix(Self.tmpPrefix) && !n.hasPrefix(Self.tmpPrefix + "old-")
+        }
+        let f = try makeFile("lok/a.txt", "NOWA")
+        let r = await run(FileOperation(kind: .copy, sources: [f], destination: remoteURL("/in")), decide: .replace)
+        XCTAssertEqual(r.completedCount, 0)
+        XCTAssertEqual(provider.contents("/in/a.txt"), "STARA", "stara wersja musi przeżyć")
+        XCTAssertTrue(provider.tempLeftovers.isEmpty, "nic nie zostaje: \(provider.tempLeftovers)")
+        XCTAssertTrue(r.summary.contains("błęd") || !r.failures.isEmpty)
+        XCTAssertTrue(r.failures.first?.1.localizedDescription.contains("zachowany") == true, r.failures.first?.1.localizedDescription ?? "")
+    }
+
+    func testReplaceWhenRenameAndRestoreBothFailKeepsBothVersionsOnServer() async throws {
+        provider.seedFile("/in/a.txt", "STARA")
+        // Po przeniesieniu starego pliku do kopii zapasowej żadna zmiana nazwy na „a.txt” się nie udaje.
+        provider.failRename = { _, to in to.lastComponent == "a.txt" }
+        let f = try makeFile("lok/a.txt", "NOWA")
+        let r = await run(FileOperation(kind: .copy, sources: [f], destination: remoteURL("/in")), decide: .replace)
+        XCTAssertEqual(r.completedCount, 0)
+        let leftovers = provider.tempLeftovers
+        XCTAssertEqual(leftovers.compactMap { provider.contents($0) }.sorted(), ["NOWA", "STARA"], "obie wersje zostają na serwerze: \(leftovers)")
+        let msg = r.failures.first?.1.localizedDescription ?? ""
+        XCTAssertTrue(msg.contains("Poprzednia wersja"), msg)
+        XCTAssertTrue(msg.contains("nowa wersja"), msg)
+    }
+
+    func testFailingRenameWithoutReplaceKeepsUploadedDataAndSaysSo() async throws {
+        provider.seedDir("/in")
+        provider.failRename = { _, _ in true }
+        let f = try makeFile("lok/b.txt", "NOWA")
+        let r = await run(FileOperation(kind: .copy, sources: [f], destination: remoteURL("/in")))
+        XCTAssertEqual(r.completedCount, 0)
+        XCTAssertFalse(provider.has("/in/b.txt"))
+        XCTAssertEqual(provider.tempLeftovers.compactMap { provider.contents($0) }, ["NOWA"], "komunikat obiecuje, że nowa wersja została")
+        XCTAssertTrue(r.failures.first?.1.localizedDescription.contains("nowa wersja została") == true)
+    }
+
+    func testSuccessfulReplaceLeavesNoBackupOnServer() async throws {
+        provider.seedFile("/in/a.txt", "STARA")
+        let f = try makeFile("lok/a.txt", "NOWA")
+        let r = await run(FileOperation(kind: .copy, sources: [f], destination: remoteURL("/in")), decide: .replace)
+        XCTAssertEqual(r.completedCount, 1, r.summary)
+        XCTAssertEqual(provider.contents("/in/a.txt"), "NOWA")
+        XCTAssertTrue(provider.tempLeftovers.isEmpty, "\(provider.tempLeftovers)")
     }
 }
 

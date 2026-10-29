@@ -48,7 +48,7 @@ struct SidebarView: View {
             if !state.favorites.isEmpty {
                 Section("Ulubione") {
                     ForEach(state.favorites, id: \.path) { url in
-                        let exists = FileManager.default.fileExists(atPath: url.path)
+                        let exists = state.availableFavorites.contains(url.path)
                         Label(url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent, systemImage: "star.fill")
                             .foregroundStyle(exists ? .primary : .secondary)
                             .lineLimit(1).truncationMode(.middle)

@@ -241,23 +241,42 @@ public struct RemoteTransferEngine: RemoteOperationHandling {
         let dir = remote.parent
         let tmp = try dir.appending("\(Self.tempPrefix)\(UUID().uuidString)")
         let writeTarget = useTemp ? tmp : remote
+        // Po nieudanej zmianie nazwy plik tymczasowy może być jedyną kopią nowych danych — wtedy go nie sprzątamy.
+        var keepTemp = false
         do {
             try await provider.upload(from: local, to: writeTarget, overwrite: useTemp ? false : replacing) { meter.fileProgress($0) }
             if let remoteSize = try await provider.stat(writeTarget)?.size, remoteSize != size {
                 throw NetworkError.invalidResponse("rozmiar na serwerze (\(remoteSize) B) różni się od lokalnego (\(size) B) — transfer uznany za nieudany.")
             }
             if useTemp {
+                // Zastępowanie: stary plik najpierw dostaje nazwę zapasową (nie jest kasowany), usuwamy go dopiero po udanej podmianie.
+                var backup: RemotePath?
                 if replacing {
-                    guard provider.capabilities.delete else { throw NetworkError.unsupported("usuwanie (potrzebne do zastąpienia)") }
-                    try await provider.delete(remote, isDirectory: false)
+                    let bak = try dir.appending("\(Self.tempPrefix)old-\(UUID().uuidString)")
+                    try await provider.rename(remote, to: bak)
+                    backup = bak
                 }
                 do { try await provider.rename(tmp, to: remote) } catch {
-                    throw NetworkError.other("plik został wysłany, ale nie udało się nadać mu docelowej nazwy; nowa wersja została na serwerze jako „\(tmp.lastComponent ?? "")”.")
+                    var restored = backup == nil
+                    if let bak = backup {
+                        // Przywracanie musi się udać także po anulowaniu zadania — stąd osobne zadanie.
+                        restored = await Task.detached { (try? await provider.rename(bak, to: remote)) != nil }.value
+                    }
+                    if replacing && restored {
+                        throw NetworkError.other("nie udało się nadać nowemu plikowi docelowej nazwy; stary plik na serwerze został zachowany bez zmian.")
+                    }
+                    keepTemp = true
+                    var msg = "plik został wysłany, ale nie udało się nadać mu docelowej nazwy; nowa wersja została na serwerze jako „\(tmp.lastComponent ?? "")”."
+                    if let bak = backup, !restored {
+                        msg += " Poprzednia wersja została na serwerze jako „\(bak.lastComponent ?? "")”."
+                    }
+                    throw NetworkError.other(msg)
                 }
+                if let bak = backup { try? await provider.delete(bak, isDirectory: false) } // najlepsza próba; zapas ma prefiks tymczasowy
             }
             meter.fileFinished(size: size)
         } catch {
-            if useTemp {
+            if useTemp && !keepTemp {
                 // Sprzątamy wyłącznie własny plik tymczasowy (najlepsza próba; przy zerwanym połączeniu może zostać).
                 // Serwer mógł dokończyć zapis już po anulowaniu/zerwaniu (np. HTTP) — jeśli plik nadal jest, ponawiamy usunięcie krótko.
                 await Task.detached {
@@ -320,7 +339,7 @@ public struct RemoteTransferEngine: RemoteOperationHandling {
                 }
                 if replacing {
                     do { try trasher.trash(finalTarget) } catch {
-                        throw OperationError.trashFailed(name: finalTarget.lastPathComponent, reason: (error as NSError).localizedDescription)
+                        throw OperationError.trash(error, name: finalTarget.lastPathComponent)
                     }
                 }
                 try FileManager.default.moveItem(at: tmp, to: finalTarget)

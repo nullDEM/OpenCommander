@@ -33,27 +33,36 @@ struct InfoPanel: View {
 
     private var folderInfo: some View {
         VStack(alignment: .leading, spacing: 10) {
-            header(icon: NSWorkspace.shared.icon(for: .folder), title: panel.location.lastPathComponent.isEmpty ? "/" : panel.location.lastPathComponent,
-                   subtitle: "Bieżący folder")
+            header(icon: NSWorkspace.shared.icon(for: .folder), title: folderTitle, subtitle: "Bieżący folder")
             row("Elementy", Polish.items(panel.entries.count))
             if panel.isFiltering { row("Po filtrze", "\(panel.visibleEntries.count)") }
             if let free = panel.freeSpace { row("Wolne miejsce", ProgressFormat.bytes(free)) }
-            pathRow(panel.location.path)
+            pathRow(panel.location.remoteLocation?.path.string ?? panel.location.path)
             Text("Zaznacz element, aby zobaczyć szczegóły.").font(.caption).foregroundStyle(.secondary)
         }
     }
 
+    private var folderTitle: String {
+        if let r = panel.location.remoteLocation {
+            let server = state.serverName(of: panel.location) ?? "Serwer"
+            return r.path.lastComponent ?? server
+        }
+        return panel.location.lastPathComponent.isEmpty ? "/" : panel.location.lastPathComponent
+    }
+
     private func singleInfo(_ e: FileEntry) -> some View {
-        let attrs = (try? FileManager.default.attributesOfItem(atPath: e.url.path)) ?? [:]
+        // Wpis zdalny ma adres `ocremote://…`, ale jego `.path` wygląda jak ścieżka lokalna — nie wolno pytać o nią lokalnego dysku.
+        let remote = e.url.isRemoteLocation
+        let attrs = remote ? [:] : ((try? FileManager.default.attributesOfItem(atPath: e.url.path)) ?? [:])
         return VStack(alignment: .leading, spacing: 10) {
             header(icon: e.isPackage ? NSWorkspace.shared.icon(forFile: e.url.path) : IconCache.typeIcon(for: e),
                    title: e.name, subtitle: e.kind)
             if e.isSymbolicLink {
-                row("Dowiązanie do", (try? FileManager.default.destinationOfSymbolicLink(atPath: e.url.path)) ?? "nieczytelne")
+                row("Dowiązanie do", remote ? "—" : ((try? FileManager.default.destinationOfSymbolicLink(atPath: e.url.path)) ?? "nieczytelne"))
             }
             if let size = e.size {
                 row("Rozmiar", "\(ProgressFormat.bytes(size)) (\(size.formatted()) B)")
-            } else if e.isDirectory && !e.isSymbolicLink {
+            } else if e.isDirectory && !e.isSymbolicLink && !remote {
                 sizeSection
             } else {
                 row("Rozmiar", "—")
@@ -62,8 +71,10 @@ struct InfoPanel: View {
             if let m = e.modificationDate { row("Zmodyfikowano", m.formatted(date: .abbreviated, time: .shortened)) }
             if let perm = attrs[.posixPermissions] as? NSNumber { row("Uprawnienia", String(perm.intValue, radix: 8)) }
             if e.isHidden { row("Ukryty", "tak") }
-            pathRow(e.url.path)
-            Button("Pokaż w Finderze") { NSWorkspace.shared.activateFileViewerSelecting([e.url]) }.buttonStyle(.link)
+            pathRow(e.url.remoteLocation?.path.string ?? e.url.path)
+            if !remote {
+                Button("Pokaż w Finderze") { NSWorkspace.shared.activateFileViewerSelecting([e.url]) }.buttonStyle(.link)
+            }
         }
     }
 
@@ -74,7 +85,7 @@ struct InfoPanel: View {
             row("Suma rozmiarów plików", ProgressFormat.bytes(panel.knownSelectedSize))
             if !folders.isEmpty {
                 row("Foldery", "\(folders.count) — rozmiar nieobliczony")
-                sizeSection
+                if !panel.isRemote { sizeSection }
             }
         }
     }

@@ -3,7 +3,7 @@ import OpenCommanderCore
 
 /// Zaufanie do klucza serwera przy pierwszym połączeniu. Domyślną akcją jest odmowa — zaufanie wymaga świadomego kliknięcia.
 struct HostKeySheet: View {
-    let request: HostKeyRequest
+    let request: PromptQueue<HostKeyInfo, Bool>.Request
 
     var body: some View {
         let i = request.info
@@ -34,21 +34,21 @@ struct HostKeySheet: View {
 
 /// Hasło lub passphrase klucza, gdy nie jest zapisane w Keychain. Wartość żyje tylko w pamięci na czas sesji.
 struct CredentialSheet: View {
-    let request: CredentialRequest
+    let request: PromptQueue<CredentialPrompt, String?>.Request
     @State private var value = ""
     @FocusState private var focused: Bool
 
     private var prompt: String {
-        request.kind == .password
-            ? "Podaj hasło dla \(request.profile.username)@\(request.profile.displayAddress)."
-            : "Podaj hasło (passphrase) klucza prywatnego dla „\(request.profile.name)”."
+        request.info.kind == .password
+            ? "Podaj hasło dla \(request.info.profile.username)@\(request.info.profile.displayAddress)."
+            : "Podaj hasło (passphrase) klucza prywatnego dla „\(request.info.profile.name)”."
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label(request.kind == .password ? "Hasło" : "Hasło do klucza", systemImage: "key.fill").font(.headline)
+            Label(request.info.kind == .password ? "Hasło" : "Hasło do klucza", systemImage: "key.fill").font(.headline)
             Text(prompt).font(.callout).foregroundStyle(.secondary)
-            SecureField(request.kind == .password ? "Hasło" : "Passphrase", text: $value)
+            SecureField(request.info.kind == .password ? "Hasło" : "Passphrase", text: $value)
                 .textFieldStyle(.roundedBorder).focused($focused).onSubmit(submit)
             Text("Nie jest zapisywane na dysku. Zapisanie w Keychain wybierzesz w edycji połączenia.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -74,8 +74,8 @@ struct ConnectionPrompts: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: Binding(get: { show ? state.hostKeyRequest : nil }, set: { _ in })) { HostKeySheet(request: $0) }
-            .sheet(item: Binding(get: { show ? state.credentialRequest : nil }, set: { _ in })) { CredentialSheet(request: $0) }
+            .sheet(item: Binding(get: { show ? state.hostKeyPrompts.current : nil }, set: { _ in })) { HostKeySheet(request: $0) }
+            .sheet(item: Binding(get: { show ? state.credentialPrompts.current : nil }, set: { _ in })) { CredentialSheet(request: $0) }
     }
 
     private var show: Bool { topLevel ? state.sheet == nil : state.sheet != nil }

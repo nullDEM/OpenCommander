@@ -268,11 +268,9 @@ struct PanelView: View {
             }
             Button("Kopiuj ścieżkę") { state.select(ids, in: panel); state.copyPathToPasteboard() }
             Button("Informacje") { state.select(ids, in: panel); state.showInspector = true }
-            if entries.count == 1, entries[0].isNavigable {
+            if entries.count == 1, entries[0].isNavigable, !panel.isRemote {
                 Button("Otwórz w nowej karcie") { state.select(ids, in: panel); state.openInNewTab(entries[0].url) }
-                if panel.isRemote {
-                    EmptyView()
-                } else if state.isFavorite(entries[0].url) {
+                if state.isFavorite(entries[0].url) {
                     Button("Usuń z ulubionych") { state.removeFavorite(entries[0].url) }
                 } else {
                     Button("Dodaj do ulubionych") { state.addFavorite(entries[0].url) }

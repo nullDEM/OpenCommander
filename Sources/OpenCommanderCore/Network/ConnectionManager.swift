@@ -36,6 +36,8 @@ public final class ConnectionManager {
     @ObservationIgnored private var sessionPassphraseRefs: [UUID: SecretRef] = [:]
     @ObservationIgnored private var providers: [UUID: any FileProvider] = [:]
     @ObservationIgnored private var connecting: [UUID: Task<any FileProvider, Error>] = [:]
+    /// Znacznik trwającej próby łączenia; `disconnect` go kasuje, więc spóźniona próba nie ustawi sesji jako połączonej.
+    @ObservationIgnored private var attempts: [UUID: UUID] = [:]
     @ObservationIgnored public let trustedHostsStore: TrustedHostsStore
 
     /// Ustawiane przez moduł protokołów (SFTP/FTP/WebDAV).
@@ -121,24 +123,39 @@ public final class ConnectionManager {
             guard let self else { throw NetworkError.cancelled }
             let creds = try await self.resolveCredentials(profile)
             let provider = try self.makeProvider(profile, creds)
-            try await provider.connect()
+            do {
+                try await provider.connect()
+                try Task.checkCancellation()   // rozłączenie w trakcie łączenia
+            } catch {
+                await provider.disconnect()
+                throw error
+            }
             return provider
         }
+        let attempt = UUID()
+        attempts[id] = attempt
         connecting[id] = task
-        defer { connecting[id] = nil }
+        defer { if attempts[id] == attempt { connecting[id] = nil; attempts[id] = nil } }
         do {
             let provider = try await task.value
+            guard attempts[id] == attempt else {
+                // Użytkownik rozłączył, zanim łączenie dobiegło końca.
+                await provider.disconnect()
+                throw NetworkError.cancelled
+            }
             providers[id] = provider
             states[id] = .connected
             return provider
         } catch {
-            states[id] = .failed(message(error, profile: profile))
+            if attempts[id] == attempt { states[id] = .failed(message(error, profile: profile)) }
             throw error
         }
     }
 
     public func disconnect(_ id: UUID) async {
         connecting[id]?.cancel()
+        connecting[id] = nil
+        attempts[id] = nil
         if let p = providers.removeValue(forKey: id) { await p.disconnect() }
         // Hasła „tylko na sesję” znikają przy świadomym rozłączeniu.
         if let ref = sessionRefs[id] { try? sessionSecrets.deleteSecret(for: ref) }
@@ -166,8 +183,8 @@ public final class ConnectionManager {
             if creds.password == nil, profile.auth == .password, let ref = profile.passwordRef { creds.password = try secrets.secret(for: ref) }
             if creds.passphrase == nil, profile.auth == .privateKey, let ref = profile.passphraseRef { creds.passphrase = try secrets.secret(for: ref) }
             let provider = try makeProvider(profile, creds)
+            defer { Task { await provider.disconnect() } }   // także po nieudanym `connect`, by zamknąć częściowo otwarte zasoby
             try await provider.connect()
-            defer { Task { await provider.disconnect() } }
             let start = (try? await provider.initialPath()) ?? .root
             let count = try await provider.list(start).count
             return .success("Połączono. Katalog „\(start.string)”: \(count) elementów.")
@@ -215,7 +232,8 @@ public final class ConnectionManager {
         case .password:
             creds.password = try await secret(profile, saved: profile.passwordRef, session: sessionRefs[profile.id], kind: .password) { self.sessionRefs[profile.id] = $0 }
         case .privateKey:
-            // Passphrase bywa pusta (klucz bez hasła) — wtedy pytamy tylko, gdy biblioteka zgłosi, że jest wymagana (provider ponawia przez `credentialPrompt` w UI).
+            // Passphrase bywa pusta (klucz bez hasła) — pytamy o nią tylko, gdy profil ją zapamiętał. Dla zaszyfrowanego klucza bez zapisanej
+            // passphrase provider zgłasza czytelny błąd z prośbą o jej wpisanie w edycji połączenia.
             if profile.passphraseRef != nil || sessionPassphraseRefs[profile.id] != nil {
                 creds.passphrase = try await secret(profile, saved: profile.passphraseRef, session: sessionPassphraseRefs[profile.id], kind: .passphrase) { self.sessionPassphraseRefs[profile.id] = $0 }
             }

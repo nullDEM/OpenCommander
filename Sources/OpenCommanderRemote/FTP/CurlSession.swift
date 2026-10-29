@@ -11,10 +11,16 @@ final class CurlOperation {
     var source: ((UnsafeMutableRawBufferPointer) -> Int)?
     var onProgress: (@Sendable (Int64) -> Void)?
     var serverLines: [String] = []
-    var errorBuffer = [CChar](repeating: 0, count: Int(CURL_ERROR_SIZE) + 1)
+    /// Bufor błędu libcurl; wskaźnik musi być stabilny przez cały `curl_easy_perform`, więc nie jest to tablica Swifta.
+    private let errorBuffer = UnsafeMutablePointer<CChar>.allocate(capacity: Int(CURL_ERROR_SIZE) + 1)
     var received: Int64 = 0
 
-    init(token: CancelToken) { self.token = token }
+    init(token: CancelToken) {
+        self.token = token
+        errorBuffer.initialize(repeating: 0, count: Int(CURL_ERROR_SIZE) + 1)
+    }
+    deinit { errorBuffer.deallocate() }
+    var errorBufferPointer: UnsafeMutablePointer<CChar> { errorBuffer }
 
     /// Ostatni trzycyfrowy kod odpowiedzi serwera (np. 550) i jego wiersz.
     var lastReply: (code: Int, line: String)? {
@@ -94,11 +100,9 @@ final class CurlHandle {
         cfg.str(CURLOPT_PROTOCOLS_STR, "ftp,ftps")
 
         configure(cfg)
-        // Bufor błędu musi żyć przez cały `curl_easy_perform` — trzymamy go przez withUnsafeMutableBufferPointer wokół wywołania.
-        let rc: CURLcode = op.errorBuffer.withUnsafeMutableBufferPointer { buf in
-            _ = oc_setopt_ptr(h, CURLOPT_ERRORBUFFER, buf.baseAddress)
-            return curl_easy_perform(h)
-        }
+        _ = oc_setopt_ptr(h, CURLOPT_ERRORBUFFER, op.errorBufferPointer)
+        let rc: CURLcode = curl_easy_perform(h)
+        _ = oc_setopt_ptr(h, CURLOPT_ERRORBUFFER, nil)   // uchwyt przeżywa operację — nie zostawiamy wskaźnika do zwolnionej pamięci
         cfg.releaseLists()
         return Int(rc.rawValue)
     }

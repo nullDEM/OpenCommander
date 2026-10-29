@@ -7,6 +7,7 @@ struct CompareSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var diff: FolderDiff?
     @State private var loading = true
+    @State private var failure: String?
     @State private var selection = Set<ComparisonItem.ID>()
     @State private var filter: Filter = .all
     @State private var left = URL(fileURLWithPath: "/")
@@ -60,7 +61,8 @@ struct CompareSheet: View {
                     TableColumn("Prawy") { Text(describe($0.rightSize, $0.rightDate)).foregroundStyle(.secondary).lineLimit(1) }
                 }
                 if loading { ProgressView("Porównuję…") }
-                else if shown.isEmpty { Text(diff?.items.isEmpty == true ? "Foldery są takie same." : "Brak pozycji w tym widoku.").foregroundStyle(.secondary) }
+                else if let failure { Text(failure).foregroundStyle(.red).multilineTextAlignment(.center).padding() }
+                else if shown.isEmpty { Text(emptyText).foregroundStyle(.secondary).multilineTextAlignment(.center).padding() }
             }
             .frame(minHeight: 260)
 
@@ -89,6 +91,13 @@ struct CompareSheet: View {
         }
     }
 
+    /// „Takie same” tylko wtedy, gdy porównanie objęło wszystko; pominięte elementy oznaczają wynik niepełny.
+    private var emptyText: String {
+        guard let diff, diff.items.isEmpty else { return "Brak pozycji w tym widoku." }
+        if diff.skipped > 0 || diff.truncated { return "Nie znaleziono różnic w tym, co udało się porównać — wynik jest niepełny (zob. uwagę poniżej)." }
+        return "Foldery są takie same."
+    }
+
     private func describe(_ size: Int64?, _ date: Date?) -> String {
         guard size != nil || date != nil else { return "—" }
         let s = size.map { ProgressFormat.bytes($0) } ?? ""
@@ -97,11 +106,17 @@ struct CompareSheet: View {
     }
 
     private func load() {
-        loading = true; selection = []
+        loading = true; selection = []; failure = nil
         let l = left, r = right
         Task {
-            let result = try? await FolderComparison.compare(left: l, right: r)
-            diff = result ?? FolderDiff()
+            do {
+                diff = try await FolderComparison.compare(left: l, right: r)
+            } catch is CancellationError {
+                diff = nil
+            } catch {
+                diff = nil
+                failure = "Nie udało się porównać folderów: \(error.localizedDescription)"
+            }
             loading = false
         }
     }

@@ -3,6 +3,14 @@ import XCTest
 @testable import OpenCommanderCore
 
 final class FTPParsingTests: XCTestCase {
+    func testNonASCIIDigitsFromServerAreRejectedWithoutCrashing() {
+        XCTAssertNil(FTPListParser.parseMLSTTime("2026102²123456"))
+        XCTAssertNil(FTPListParser.parseMLSTTime("٢٠٢٦١٠٢٩١٢٣٤٥٦"))
+        XCTAssertNotNil(FTPListParser.parseMLSTTime("20261029123456"))
+        let r = FTPListParser.parseLIST("١٠-٢٩-٢٦ ١٢:٣٠PM <DIR> folder\r\n")
+        XCTAssertTrue(r.entries.isEmpty)
+    }
+
     func testMLSDFactsTypesSizesAndNamesWithSpacesAndSemicolons() {
         let text = """
         type=cdir;modify=20251014100000; .\r

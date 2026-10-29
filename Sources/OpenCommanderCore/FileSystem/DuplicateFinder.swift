@@ -16,7 +16,7 @@ public struct FileEntryLite: Equatable, Hashable, Sendable {
 }
 
 /// Szukanie duplikatów po zawartości. Uruchamiane wyłącznie na żądanie użytkownika (czyta zawartość plików).
-/// Etapy: grupowanie po rozmiarze → skrót początku pliku → pełny SHA-256. Dowiązania i puste pliki są pomijane.
+/// Etapy: grupowanie po rozmiarze → pełny SHA-256 w grupach o tym samym rozmiarze. Dowiązania i puste pliki są pomijane.
 public enum DuplicateFinder {
     public struct Progress: Sendable { public var phase: String; public var done: Int; public var total: Int }
 

@@ -11,9 +11,16 @@ public struct ProfileStore {
         self.key = key
     }
 
+    /// Klucz, pod którym zachowywane są dane, których nie dało się odczytać (np. po zmianie formatu) — zanim zostaną nadpisane.
+    public var backupKey: String { key + ".unreadable-backup" }
+
     public func load() -> [ConnectionProfile] {
-        guard let data = defaults.data(forKey: key),
-              let list = try? JSONDecoder().decode([ConnectionProfile].self, from: data) else { return [] }
+        guard let data = defaults.data(forKey: key) else { return [] }
+        guard let list = try? JSONDecoder().decode([ConnectionProfile].self, from: data) else {
+            // Nie kasujemy po cichu zapisanych połączeń: następny zapis nadpisałby nieczytelne dane pustą listą.
+            if defaults.data(forKey: backupKey) == nil { defaults.set(data, forKey: backupKey) }
+            return []
+        }
         return list
     }
 

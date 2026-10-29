@@ -24,7 +24,11 @@ public final class HostKeyVerifier: @unchecked Sendable {
             guard await prompt(info) else { throw NetworkError.hostKeyRejected }
             try lock.withLock {
                 hosts = store.load()
-                hosts.trust(info)
+                // Równoległe połączenie mogło w międzyczasie zapisać INNY klucz tego hosta — wtedy nie wolno kontynuować.
+                guard hosts.trust(info) else {
+                    if case .changed(let expected) = hosts.verdict(for: info) { throw NetworkError.hostKeyChanged(expected: expected, actual: info) }
+                    throw NetworkError.hostKeyRejected
+                }
                 try store.save(hosts)
             }
         }

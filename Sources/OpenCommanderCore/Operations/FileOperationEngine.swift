@@ -104,7 +104,7 @@ public struct FileOperationEngine: Sendable {
             try trasher.trash(url)
             return .completed(nil)
         } catch {
-            return .failed(.trashFailed(name: name, reason: (error as NSError).localizedDescription))
+            return .failed(OperationError.trash(error, name: name))
         }
     }
 
@@ -184,7 +184,7 @@ public struct FileOperationEngine: Sendable {
         if replacing {
             do { try trasher.trash(finalTarget) } catch {
                 rollback()
-                return .failed(.trashFailed(name: finalTarget.lastPathComponent, reason: (error as NSError).localizedDescription))
+                return .failed(OperationError.trash(error, name: finalTarget.lastPathComponent))
             }
         }
 
@@ -192,7 +192,12 @@ public struct FileOperationEngine: Sendable {
             try fm.moveItem(at: tmp, to: finalTarget)
         } catch {
             rollback()
-            return .failed(OperationError.map(error, item: name))
+            let base = OperationError.map(error, item: name)
+            if replacing {
+                // Zastępowany element jest już w Koszu — rollback go stamtąd nie wyjmuje, więc mówimy to wprost.
+                return .failed(.other(name: name, reason: "\(base.localizedDescription) Poprzedni element „\(finalTarget.lastPathComponent)” został już przeniesiony do Kosza — możesz go stamtąd przywrócić."))
+            }
+            return .failed(base)
         }
 
         if kind == .move && !renameBased {

@@ -322,7 +322,7 @@ public final class FTPProvider: FileProvider, @unchecked Sendable {
     private func check(_ rc: Int, _ op: CurlOperation) throws {
         if rc == 0 { return }
         let code = op.lastReply?.code ?? 0
-        if code == 425 || code == 426, rc != 0 {
+        if code == 425 || code == 426 {
             throw NetworkError.connectionFailed("serwer nie pozwolił otworzyć kanału danych (\(code)). Zwykle winna jest zapora, tryb pasywny lub wymóg wznowienia sesji TLS po stronie serwera.")
         }
         switch rc {
