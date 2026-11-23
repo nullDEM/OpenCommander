@@ -13,8 +13,9 @@ struct ConnectionFormSheet: View {
     @State private var draft: ConnectionProfile
     @State private var password = ""
     @State private var passphrase = ""
-    @State private var remember = true
-    @State private var portText = ""
+    // `remember` i `portText` dostają wartość wyłącznie w `init` (jedno miejsce inicjalizacji `@State`).
+    @State private var remember: Bool
+    @State private var portText: String
     @State private var testing = false
     @State private var testResult: (ok: Bool, text: String)?
     @State private var saveError: String?
@@ -38,11 +39,12 @@ struct ConnectionFormSheet: View {
             Text(existing == nil ? "Nowe połączenie" : "Edytuj połączenie").font(.headline).padding([.top, .horizontal], 20).padding(.bottom, 8)
             Form {
                 TextField("Nazwa", text: $draft.name)
-                Picker("Protokół", selection: protocolBinding) {
+                Picker("Protokół", selection: $draft.proto) {
                     ForEach(RemoteModule.supportedProtocols) { Text($0.title).tag($0) }
                 }
+                .onChange(of: draft.proto) { _, new in protocolChanged(to: new) }
                 if isWebDAV {
-                    TextField("Adres (https://serwer/ścieżka)", text: Binding(get: { draft.baseURL ?? "" }, set: { draft.baseURL = $0 }))
+                    TextField("Adres (https://serwer/ścieżka)", text: $draft.baseURLText)
                         .onChange(of: draft.baseURL) { _, _ in syncPort() }
                 } else {
                     TextField("Serwer", text: $draft.host)
@@ -66,7 +68,7 @@ struct ConnectionFormSheet: View {
                 }
                 if draft.auth == .privateKey {
                     HStack {
-                        TextField("Plik klucza prywatnego", text: Binding(get: { draft.keyFilePath ?? "" }, set: { draft.keyFilePath = $0 }))
+                        TextField("Plik klucza prywatnego", text: $draft.keyFilePathText)
                         Button("Wybierz…") { chooseKey() }
                     }
                     SecureField("Hasło do klucza", text: $passphrase,
@@ -124,13 +126,11 @@ struct ConnectionFormSheet: View {
         }
     }
 
-    private var protocolBinding: Binding<ConnectionProtocol> {
-        Binding(get: { draft.proto }, set: { new in
-            draft.proto = new
-            if !allowedAuth.contains(draft.auth) { draft.auth = .password }
-            if new == .webdav, draft.baseURL == nil { draft.baseURL = "https://" }
-            syncPort()
-        })
+    /// Po zmianie protokołu: tryb logowania dozwolony dla nowego protokołu, adres startowy WebDAV i domyślny port.
+    private func protocolChanged(to new: ConnectionProtocol) {
+        if !allowedAuth.contains(draft.auth) { draft.auth = .password }
+        if new == .webdav, draft.baseURL == nil { draft.baseURL = "https://" }
+        syncPort()
     }
 
     private func syncPort() {
