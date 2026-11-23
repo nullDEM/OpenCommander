@@ -76,3 +76,49 @@ Wnioski:
 | 5 | Sortowanie | 0,4 s / 50k | klucz sortowania liczony raz | ~3–5× |
 
 **Rust: obecnie niepotrzebny.** Hashowanie dużych plików (2,2 GB) trwa 0,6 s — CPU nie jest wąskim gardłem. Wszystkie największe koszty wynikają z dodatkowych wywołań systemowych i pracy interfejsu, których zmiana języka nie usunie.
+
+---
+
+# Etap 1 — wyniki (Swift, bez zmiany architektury)
+
+Te same dane i maszyna. Benchmark Core: mediana z 5 (lub 3) przebiegów. Profil aplikacji: pojedynczy przebieg (start z oboma panelami w `flat_50k`).
+
+## Zmiany
+
+1. **Listowanie** (`DirectoryLister`): atrybuty czytane z URL zwróconego przez system (już pobrane hurtem); opis rodzaju liczony raz na typ pliku (sprawdzone na 16 450 plikach systemowych / 58 typach: opis zależy wyłącznie od typu); `appendingPathComponent(_:isDirectory:)` z podpowiedzią z listowania (bez dodatkowego `lstat`; URL identyczne — sprawdzone na 10 655 wpisach, w tym dowiązaniach); `FileFilter.fold` zamienia „ł” tylko, gdy występuje.
+2. **`FileEntry.id`** zapisany przy tworzeniu wpisu zamiast liczenia `url.path` przy każdym odczycie (tabela czyta go dla każdego wiersza).
+3. **Duplikaty**: skrót na tekst szesnastkowy bez `String(format:)` (ten sam wynik).
+4. **Sortowanie** (`FileSorter`): klucze liczone raz, sortowanie indeksów, rodzaj jako ranga liczbowa. Kolejność identyczna ze starą implementacją (test `FileSorterEquivalenceTests`, wszystkie klucze i kierunki).
+
+## Core — przed / po
+
+| Pomiar | Przed [ms] | Po [ms] | Przyspieszenie |
+|---|---:|---:|---:|
+| listowanie flat_1k | 88,1 | 13,9 | 6,3× |
+| listowanie flat_10k | 890,2 | 146,8 | 6,1× |
+| **listowanie flat_50k** | **4 744,5** | **696,6** | **6,8×** |
+| sortowanie 50k po name | 416,9 | 191,0 | 2,2× |
+| sortowanie 50k po size | 202,8 | 35,5 | 5,7× |
+| sortowanie 50k po kind | 438,5 | 104,8 | 4,2× |
+| sortowanie 50k po date | 177,7 | 12,1 | 14,7× |
+| filtr 50k: pisanie 8 znaków | 168,5 | 174,2 | bez zmian |
+| rozmiar folderu tree_a | 559,1 | 454,1 | 1,2× |
+| porównanie folderów | 2 308,1 | 1 997,2 | 1,2× |
+| **duplikaty tree_a (100k małych plików)** | **16 790,8** | **2 882,9** | **5,8×** |
+| duplikaty dups (2,2 GB) | 608,1 | 565,5 | bez istotnej zmiany |
+
+## Aplikacja — przed / po (ms CPU, start z 2 × 50 000 wpisów)
+
+| Kategoria | Przed | Po |
+|---|---:|---:|
+| listowanie (wątki w tle) | 7 776 | 552 |
+| sortowanie (wątki w tle) | 1 008 | 589 |
+| **tabela na wątku głównym** | **2 093** | **1 190** |
+| graf SwiftUI na wątku głównym | 1 210 | 594 |
+| tabela zaczyna pracę po | 4,8 s | 0,9 s |
+
+## Co zostało
+
+- **Tabela SwiftUI** nadal blokuje wątek główny ~0,6 s na panel z 50 000 wierszy. Profil: SwiftUI odwiedza *wszystkie* wiersze (`TableRowForEachState`, tworzenie podgrafu na wiersz) przy każdej aktualizacji tabeli — koszt rośnie liniowo z liczbą wierszy, niezależnie od tego, ile jest widocznych. Usunięcie `.draggable` dało tylko ~16 %. Pełne rozwiązanie: lista plików na `NSTableView` (etap 3, osobna decyzja).
+- Porównanie folderów i rozmiar folderu: zysk dopiero z równoległości (etap 2). Duplikaty: ~30 % czasu to otwieranie plików — też etap 2.
+- Filtr: 21 ms na naciśnięcie przy 50 000 wpisów — akceptowalne.

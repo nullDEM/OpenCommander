@@ -19,7 +19,8 @@ public struct FileEntry: Identifiable, Hashable, Sendable {
     public let foldedName: String
 
     /// Lokalnie: ścieżka. Zdalnie: pełny adres `ocremote://…` (ta sama ścieżka na dwóch serwerach to dwa różne elementy).
-    public var id: String { url.isFileURL ? url.path : url.absoluteString }
+    /// Zapisana przy tworzeniu wpisu: tabela odczytuje ją dla każdego wiersza przy każdej aktualizacji (50 000 × `url.path`).
+    public let id: String
 
     /// Czy dwuklik wchodzi do środka (a nie otwiera w aplikacji).
     public var isNavigable: Bool { isDirectory && !isPackage }
@@ -41,6 +42,7 @@ public struct FileEntry: Identifiable, Hashable, Sendable {
         self.kind = kind
         self.contentType = contentType
         self.foldedName = FileFilter.fold(name)
+        self.id = url.isFileURL ? url.path : url.absoluteString
     }
 }
 

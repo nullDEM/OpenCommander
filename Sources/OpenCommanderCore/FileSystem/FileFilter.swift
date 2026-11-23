@@ -11,8 +11,9 @@ public enum FileFilter {
     }
 
     static func fold(_ s: String) -> String {
-        s.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
-            .replacingOccurrences(of: "ł", with: "l")
+        let folded = s.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        // Zamiana kosztuje (liczona dla każdego wpisu przy listowaniu) — tylko gdy „ł” faktycznie występuje.
+        return folded.contains("ł") ? folded.replacingOccurrences(of: "ł", with: "l") : folded
     }
 }
 

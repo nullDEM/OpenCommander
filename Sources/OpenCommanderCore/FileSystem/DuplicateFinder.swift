@@ -116,7 +116,21 @@ public enum DuplicateFinder {
             try handle.seek(toOffset: UInt64(size - block))
             if let tail = try handle.read(upToCount: quickBlock) { hasher.update(data: tail) }
         }
-        return (hasher.finalize().map { String(format: "%02x", $0) }.joined(), complete)
+        return (hex(hasher.finalize()), complete)
+    }
+
+    private static let hexDigits = Array("0123456789abcdef".utf8)
+
+    /// Skrót jako tekst szesnastkowy (małe litery) — to samo co `String(format: "%02x")` dla każdego bajtu, ale bez
+    /// parsowania formatu: przy setkach tysięcy małych plików `String(format:)` zajmował ponad 1/3 czasu wyszukiwania.
+    static func hex<D: Sequence>(_ digest: D) -> String where D.Element == UInt8 {
+        var out: [UInt8] = []
+        out.reserveCapacity(64)
+        for byte in digest {
+            out.append(hexDigits[Int(byte >> 4)])
+            out.append(hexDigits[Int(byte & 0x0f)])
+        }
+        return String(decoding: out, as: UTF8.self)
     }
 
     /// Pełny SHA-256 strumieniowo (bloki 1 MB), z możliwością przerwania.
@@ -129,6 +143,6 @@ public enum DuplicateFinder {
             guard let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty else { break }
             hasher.update(data: chunk)
         }
-        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        return hex(hasher.finalize())
     }
 }
