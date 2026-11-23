@@ -26,6 +26,8 @@ targets:
     postBuildScripts:
       - name: Wersja z gita
         basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
         script: |
           # Wpisuje do zbudowanego Info.plist skrót commita (+ liczbę commitów i znacznik zmian lokalnych), by wersja w menu Pomoc zgadzała się z historią git.
           PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
