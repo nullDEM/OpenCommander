@@ -26,6 +26,8 @@ let package = Package(
             ],
             path: "Sources/OpenCommanderRemote"
         ),
+        // Benchmark logiki Core (Tools/bench). Nie wchodzi do aplikacji; uruchamiany ręcznie w trybie Release.
+        .executableTarget(name: "OCBench", dependencies: ["OpenCommanderCore"], path: "Sources/OCBench"),
         .testTarget(
             name: "OpenCommanderCoreTests",
             dependencies: ["OpenCommanderCore"],
