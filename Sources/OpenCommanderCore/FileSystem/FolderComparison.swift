@@ -51,37 +51,58 @@ public enum FolderComparison {
 
     public static func compareSync(left: URL, right: URL) throws -> FolderDiff {
         var result = FolderDiff()
-        try walk(left, right, prefix: "", &result)
+        // Przechodzenie poziomami: pary podfolderów jednego poziomu są listowane równolegle (listowanie to praca dysku).
+        var frontier = [Pair(l: left, r: right, prefix: "")]
+        let stop = StopFlag()
+        while !frontier.isEmpty {
+            let level = try ParallelWork.map(frontier, stop: stop) { pair, stop in try compareOne(pair, stop: stop) }
+            var next: [Pair] = []
+            for part in level {
+                guard let part else { continue }
+                result.items += part.items
+                result.identical += part.identical
+                result.skipped += part.skipped
+                next += part.children
+            }
+            if result.items.count >= itemLimit { result.truncated = true; break }
+            frontier = next
+        }
         result.items.sort { $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending }
+        if result.items.count > itemLimit { result.items.removeLast(result.items.count - itemLimit) }
         return result
     }
 
-    private static func walk(_ l: URL, _ r: URL, prefix: String, _ result: inout FolderDiff) throws {
-        try Task.checkCancellation()
-        guard let lm = list(l), let rm = list(r) else { result.skipped += 1; return }
+    private struct Pair { let l: URL; let r: URL; let prefix: String }
+    private struct Partial { var items: [ComparisonItem] = []; var identical = 0; var skipped = 0; var children: [Pair] = [] }
+
+    /// Jedna para folderów (bez schodzenia w głąb — podfoldery wracają jako `children`).
+    private static func compareOne(_ p: Pair, stop: StopFlag) throws -> Partial {
+        var out = Partial()
+        guard let lm = list(p.l), let rm = list(p.r) else { out.skipped = 1; return out }
         for name in Set(lm.keys).union(rm.keys) {
-            try Task.checkCancellation()
-            if result.items.count >= itemLimit { result.truncated = true; return }
-            let rel = prefix + name
+            try stop.check()
+            let rel = p.prefix + name
             switch (lm[name], rm[name]) {
             case let (a?, nil):
-                result.items.append(.init(relativePath: rel, state: .onlyLeft, isDirectory: a.isDir, leftSize: a.size, rightSize: nil, leftDate: a.date, rightDate: nil))
+                out.items.append(.init(relativePath: rel, state: .onlyLeft, isDirectory: a.isDir, leftSize: a.size, rightSize: nil, leftDate: a.date, rightDate: nil))
             case let (nil, b?):
-                result.items.append(.init(relativePath: rel, state: .onlyRight, isDirectory: b.isDir, leftSize: nil, rightSize: b.size, leftDate: nil, rightDate: b.date))
+                out.items.append(.init(relativePath: rel, state: .onlyRight, isDirectory: b.isDir, leftSize: nil, rightSize: b.size, leftDate: nil, rightDate: b.date))
             case let (a?, b?):
-                if a.isLink || b.isLink { result.skipped += 1; continue }
+                if a.isLink || b.isLink { out.skipped += 1; continue }
                 if a.isDir && b.isDir {
-                    try walk(l.appendingPathComponent(name), r.appendingPathComponent(name), prefix: rel + "/", &result)
+                    out.children.append(Pair(l: p.l.appendingPathComponent(name, isDirectory: true),
+                                             r: p.r.appendingPathComponent(name, isDirectory: true), prefix: rel + "/"))
                 } else if a.isDir != b.isDir {
-                    result.items.append(.init(relativePath: rel, state: .differs, isDirectory: false, leftSize: a.size, rightSize: b.size, leftDate: a.date, rightDate: b.date))
+                    out.items.append(.init(relativePath: rel, state: .differs, isDirectory: false, leftSize: a.size, rightSize: b.size, leftDate: a.date, rightDate: b.date))
                 } else if a.size == b.size, datesClose(a.date, b.date) {
-                    result.identical += 1
+                    out.identical += 1
                 } else {
-                    result.items.append(.init(relativePath: rel, state: .differs, isDirectory: false, leftSize: a.size, rightSize: b.size, leftDate: a.date, rightDate: b.date))
+                    out.items.append(.init(relativePath: rel, state: .differs, isDirectory: false, leftSize: a.size, rightSize: b.size, leftDate: a.date, rightDate: b.date))
                 }
             case (nil, nil): break
             }
         }
+        return out
     }
 
     private static func datesClose(_ a: Date?, _ b: Date?) -> Bool {

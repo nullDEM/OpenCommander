@@ -122,3 +122,24 @@ Te same dane i maszyna. Benchmark Core: mediana z 5 (lub 3) przebiegów. Profil 
 - **Tabela SwiftUI** nadal blokuje wątek główny ~0,6 s na panel z 50 000 wierszy. Profil: SwiftUI odwiedza *wszystkie* wiersze (`TableRowForEachState`, tworzenie podgrafu na wiersz) przy każdej aktualizacji tabeli — koszt rośnie liniowo z liczbą wierszy, niezależnie od tego, ile jest widocznych. Usunięcie `.draggable` dało tylko ~16 %. Pełne rozwiązanie: lista plików na `NSTableView` (etap 3, osobna decyzja).
 - Porównanie folderów i rozmiar folderu: zysk dopiero z równoległości (etap 2). Duplikaty: ~30 % czasu to otwieranie plików — też etap 2.
 - Filtr: 21 ms na naciśnięcie przy 50 000 wpisów — akceptowalne.
+
+---
+
+# Etap 2 — wyniki (równoległość)
+
+`ParallelWork` (nowy): niezależne elementy przetwarzane na maks. 6 wątkach (`concurrentPerform` + wspólny licznik), wyniki w kolejności wejścia, pierwszy błąd lub anulowanie zadania wołającego przerywa wszystkie wątki (`StopFlag`, sprawdzana też w pętlach czytania plików).
+
+- **Duplikaty**: skanowanie folderów poziomami (równolegle), szybki skrót wszystkich kandydatów równolegle, pełny skrót równolegle. Reguły bez zmian: bez wnętrza pakietów, bez plików ukrytych (chyba że włączone), bez podążania za dowiązaniami.
+- **Porównanie folderów**: pary podfolderów jednego poziomu listowane równolegle; wynik sortowany na końcu jak dotąd. Przy przekroczeniu limitu 20 000 różnic lista jest przycinana *po* posortowaniu (dotąd: pierwsze 20 000 w kolejności przechodzenia) — przycięty wynik może zawierać inne elementy niż wcześniej, nadal oznaczony jako przycięty.
+- **Rozmiar folderu**: foldery jednego poziomu listowane równolegle; dowiązania nadal liczone jako pliki o rozmiarze 0, pakiety i pliki ukryte wliczane.
+
+Równoważność sprawdzają testy `ParallelEquivalenceTests` (wersje odniesienia = dotychczasowe algorytmy sekwencyjne / pełny SHA-256 wszystkich plików) oraz `ParallelWorkTests` (kolejność, błędy, anulowanie).
+
+| Pomiar | Bazowo | Po etapie 1 | Po etapie 2 | Razem |
+|---|---:|---:|---:|---:|
+| rozmiar folderu tree_a (100k plików) | 559 ms | 454 ms | **114 ms** | 4,9× |
+| porównanie folderów tree_a ↔ tree_b | 2 308 ms | 1 997 ms | **429 ms** | 5,4× |
+| duplikaty tree_a (100k małych plików) | 16 791 ms | 2 883 ms | **1 052 ms** | 16× |
+| duplikaty dups (2,2 GB) | 608 ms | 566 ms | **126 ms** | 4,8× |
+
+Zastrzeżenia: pomiary na SSD z ciepłą pamięcią podręczną. Na dyskach talerzowych i udziałach sieciowych równoległe odczyty mogą dać mniejszy zysk (limit 6 wątków ogranicza ryzyko „szarpania” dysku); tego nie mierzono.

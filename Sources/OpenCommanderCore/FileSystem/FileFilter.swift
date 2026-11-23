@@ -43,20 +43,48 @@ public enum FolderSizer {
     }
 
     public static func measureSync(_ url: URL) throws -> FolderSize {
+        guard FileManager.default.fileExists(atPath: url.path) else { throw OperationError.permissionDenied(url.lastPathComponent) }
+        // Poziomami: foldery jednego poziomu listowane równolegle. Jak dotąd: bez podążania za dowiązaniami
+        // (dowiązanie liczy się jako plik o rozmiarze 0), z wejściem do pakietów i plików ukrytych.
         var result = FolderSize()
-        var unreadable = 0
-        let keys: [URLResourceKey] = [.fileSizeKey, .isRegularFileKey, .isDirectoryKey]
-        guard let en = FileManager.default.enumerator(at: url, includingPropertiesForKeys: keys, options: [],
-                                                      errorHandler: { _, _ in unreadable += 1; return true }) else {
-            throw OperationError.permissionDenied(url.lastPathComponent)
+        var frontier = [url]
+        let stop = StopFlag()
+        while !frontier.isEmpty {
+            let level = try ParallelWork.map(frontier, stop: stop) { dir, stop in try measureOne(dir, stop: stop) }
+            var next: [URL] = []
+            for part in level {
+                guard let part else { continue }
+                result.bytes += part.size.bytes
+                result.files += part.size.files
+                result.folders += part.size.folders
+                result.unreadable += part.size.unreadable
+                next += part.children
+            }
+            frontier = next
         }
-        for case let u as URL in en {
-            try Task.checkCancellation()
-            guard let v = try? u.resourceValues(forKeys: Set(keys)) else { unreadable += 1; continue }
-            if v.isDirectory == true { result.folders += 1 }
-            else { result.files += 1; if v.isRegularFile == true { result.bytes += Int64(v.fileSize ?? 0) } }
-        }
-        result.unreadable = unreadable
         return result
+    }
+
+    private static let keys: [URLResourceKey] = [.fileSizeKey, .isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey]
+
+    private static func measureOne(_ dir: URL, stop: StopFlag) throws -> (size: FolderSize, children: [URL]) {
+        var size = FolderSize()
+        var children: [URL] = []
+        guard let urls = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: keys, options: []) else {
+            size.unreadable = 1
+            return (size, [])
+        }
+        for u in urls {
+            try stop.check()
+            guard let v = try? u.resourceValues(forKeys: Set(keys)) else { size.unreadable += 1; continue }
+            if v.isDirectory == true && v.isSymbolicLink != true {
+                size.folders += 1
+                children.append(u)
+            } else {
+                size.files += 1
+                if v.isRegularFile == true { size.bytes += Int64(v.fileSize ?? 0) }
+            }
+        }
+        return (size, children)
     }
 }
