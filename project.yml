@@ -23,8 +23,27 @@ targets:
         product: OpenCommanderCore
       - package: OpenCommanderCore
         product: OpenCommanderRemote
+    postBuildScripts:
+      - name: Wersja z gita
+        basedOnDependencyAnalysis: false
+        script: |
+          # Wpisuje do zbudowanego Info.plist skrót commita (+ liczbę commitów i znacznik zmian lokalnych), by wersja w menu Pomoc zgadzała się z historią git.
+          PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
+          cd "${SRCROOT}"
+          if git rev-parse --git-dir >/dev/null 2>&1; then
+            HASH=$(git rev-parse --short=7 HEAD)
+            COUNT=$(git rev-list --count HEAD)
+            [ -n "$(git status --porcelain --untracked-files=no)" ] && HASH="${HASH}+zmiany"
+          else
+            HASH="bez-git"; COUNT="0"
+          fi
+          /usr/libexec/PlistBuddy -c "Delete :OCGitCommit" "$PLIST" 2>/dev/null
+          /usr/libexec/PlistBuddy -c "Add :OCGitCommit string ${HASH}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :OCGitCount" "$PLIST" 2>/dev/null
+          /usr/libexec/PlistBuddy -c "Add :OCGitCount string ${COUNT}" "$PLIST"
     settings:
       base:
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         PRODUCT_BUNDLE_IDENTIFIER: org.opencommander.OpenCommander
         INFOPLIST_FILE: OpenCommander/Info.plist
         GENERATE_INFOPLIST_FILE: NO

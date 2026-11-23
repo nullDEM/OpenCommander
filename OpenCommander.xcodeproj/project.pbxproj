@@ -21,6 +21,7 @@
 		28FB6E34D00828A2725A4613 /* PanelFilterBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF742775D80227A4B8D6961 /* PanelFilterBar.swift */; };
 		325515164F1C015FCE31E776 /* JobRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30572CB80F9C1E1CA9B5F00E /* JobRow.swift */; };
 		338D8A793A157FA2CF027DF4 /* ConnectionsManagerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E034E7FBDC6BE53FC8C6C54 /* ConnectionsManagerSheet.swift */; };
+		3542620BB2D5E11F8B3B5D09 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD53DE705D003D01973E992 /* AppVersion.swift */; };
 		35C9C5AB316CC6CF8E5058E5 /* OpenCommanderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E765E400F7ED150B12F186E3 /* OpenCommanderApp.swift */; };
 		363C915DA3BD72A3905B0B2B /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2E1CAC659463CEA253C1CB /* OpenWithMenu.swift */; };
 		4A7697AF4CA11E4B7E852075 /* InfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A58FA368EF8ED88A7F143805 /* InfoPanel.swift */; };
@@ -89,6 +90,7 @@
 		81EC1369F51296BFF9B49AD7 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		8488D666FB6BBFBA0245AA60 /* DraggedFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraggedFiles.swift; sourceTree = "<group>"; };
 		874D46E17F0DCE858F690006 /* MainToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainToolbar.swift; sourceTree = "<group>"; };
+		8FD53DE705D003D01973E992 /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
 		9299EFBF301E0574659AB82B /* ConnectionIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionIcons.swift; sourceTree = "<group>"; };
 		96E1DB2DAE6A122E46444E8A /* PanelContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelContextMenu.swift; sourceTree = "<group>"; };
 		9AF742775D80227A4B8D6961 /* PanelFilterBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelFilterBar.swift; sourceTree = "<group>"; };
@@ -256,6 +258,7 @@
 				BF69DC222746114ED8D8D05C /* AppCommands.swift */,
 				81EC1369F51296BFF9B49AD7 /* AppState.swift */,
 				A4E5679A28C64EE6A46E5277 /* AppState+Bindings.swift */,
+				8FD53DE705D003D01973E992 /* AppVersion.swift */,
 				874D46E17F0DCE858F690006 /* MainToolbar.swift */,
 				E765E400F7ED150B12F186E3 /* OpenCommanderApp.swift */,
 				CD3D1AD3299D270CA67AEF37 /* RemoteDeleteRequest.swift */,
@@ -278,6 +281,7 @@
 				664B47E5B1BD4453AB12B48C /* Sources */,
 				AE61A00DE1C9FF2C2478036D /* Resources */,
 				65487D88ADE12A608EDA02F3 /* Frameworks */,
+				5DC217621284866D61478CBB /* Wersja z gita */,
 			);
 			buildRules = (
 			);
@@ -339,6 +343,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		5DC217621284866D61478CBB /* Wersja z gita */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Wersja z gita";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Wpisuje do zbudowanego Info.plist skrót commita (+ liczbę commitów i znacznik zmian lokalnych), by wersja w menu Pomoc zgadzała się z historią git.\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\ncd \"${SRCROOT}\"\nif git rev-parse --git-dir >/dev/null 2>&1; then\n  HASH=$(git rev-parse --short=7 HEAD)\n  COUNT=$(git rev-list --count HEAD)\n  [ -n \"$(git status --porcelain --untracked-files=no)\" ] && HASH=\"${HASH}+zmiany\"\nelse\n  HASH=\"bez-git\"; COUNT=\"0\"\nfi\n/usr/libexec/PlistBuddy -c \"Delete :OCGitCommit\" \"$PLIST\" 2>/dev/null\n/usr/libexec/PlistBuddy -c \"Add :OCGitCommit string ${HASH}\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Delete :OCGitCount\" \"$PLIST\" 2>/dev/null\n/usr/libexec/PlistBuddy -c \"Add :OCGitCount string ${COUNT}\" \"$PLIST\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		664B47E5B1BD4453AB12B48C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -348,6 +374,7 @@
 				1EA027DB7BAF5830FF431467 /* AppCommands.swift in Sources */,
 				6D566B14D1A3DA79F692009A /* AppState+Bindings.swift in Sources */,
 				C7EB40E57373E9587C85BA96 /* AppState.swift in Sources */,
+				3542620BB2D5E11F8B3B5D09 /* AppVersion.swift in Sources */,
 				E16A9FBD1E603C144F164DA3 /* BatchRenameSheet.swift in Sources */,
 				E2E20E0FE86FC6F7C35E4735 /* Binding+Set.swift in Sources */,
 				965B556B09838F280CAD0C7B /* BreadcrumbBar.swift in Sources */,
@@ -407,6 +434,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenCommander/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -429,6 +457,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenCommander/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

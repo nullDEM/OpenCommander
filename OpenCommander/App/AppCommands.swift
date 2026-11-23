@@ -10,6 +10,8 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .help) {
             Button("Skróty klawiszowe") { openWindow(id: "shortcuts") }
                 .keyboardShortcut("/", modifiers: [.command, .shift])
+            Divider()
+            Button(AppVersion.menuTitle) {}.disabled(true)
         }
         CommandGroup(replacing: .newItem) {
             Button("Nowy folder") { state.requestNewFolder() }
@@ -114,7 +116,7 @@ struct AppCommands: Commands {
                 .disabled(state.isBusyWithDialog || state.activePanel.selection.isEmpty)
             Button("Porównaj foldery obu paneli…") { state.requestCompare() }
                 .keyboardShortcut("k", modifiers: [.command, .shift])
-                .disabled(state.isBusyWithDialog || state.left.location == state.right.location)
+                .disabled(state.isBusyWithDialog || state.panelVisibility.isSinglePanel || state.left.location == state.right.location)
             Button("Znajdź duplikaty w tym folderze…") { state.requestDuplicates() }
                 .disabled(state.isBusyWithDialog)
         }
@@ -129,6 +131,13 @@ struct AppCommands: Commands {
                 .keyboardShortcut("i", modifiers: .command)
             Toggle("Pokaż pliki ukryte", isOn: $state.showHiddenFiles)
                 .keyboardShortcut(".", modifiers: [.command, .shift])
+            Divider()
+            Toggle("Lewy panel", isOn: $state.showsLeftPanel)
+                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+                .disabled(state.isBusyWithDialog || !state.panelVisibility.canToggle(.left))
+            Toggle("Prawy panel", isOn: $state.showsRightPanel)
+                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+                .disabled(state.isBusyWithDialog || !state.panelVisibility.canToggle(.right))
         }
         CommandMenu("Przejdź") {
             Button("Folder nadrzędny") { state.activePanel.goUp() }
@@ -148,6 +157,7 @@ struct AppCommands: Commands {
             Divider()
             Button("Przełącz panel") { state.switchPanel() }
                 .keyboardShortcut("`", modifiers: .command)
+                .disabled(state.panelVisibility.isSinglePanel)
         }
     }
 }
