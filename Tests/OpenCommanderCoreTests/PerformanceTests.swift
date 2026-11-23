@@ -143,13 +143,12 @@ final class DuplicateQuickHashTests: TempDirTestCase {
     func testProgressIsThrottledButFinalStateIsReported() throws {
         for i in 0..<300 { try Data(repeating: UInt8(i % 7), count: 10).write(to: root.appendingPathComponent("f\(i).bin")) }
         let calls = LockedCounter()
-        var last: DuplicateFinder.Progress?
-        let lock = NSLock()
+        let last = LockedValue<DuplicateFinder.Progress?>(nil)
         _ = try DuplicateFinder.findSync(in: root, showHidden: false) { p in
-            calls.increment(); lock.withLock { last = p }
+            calls.increment(); last.value = p
         }
         XCTAssertLessThan(calls.value, 100, "300 plików nie daje 300 zgłoszeń postępu")
-        XCTAssertEqual(lock.withLock { last }?.done, lock.withLock { last }?.total, "ostatnie zgłoszenie pokazuje komplet")
+        XCTAssertEqual(last.value?.done, last.value?.total, "ostatnie zgłoszenie pokazuje komplet")
     }
 }
 
@@ -158,4 +157,15 @@ final class LockedCounter: @unchecked Sendable {
     private var n = 0
     func increment() { lock.withLock { n += 1 } }
     var value: Int { lock.withLock { n } }
+}
+
+/// Wartość zapisywana z wątku roboczego i czytana w teście — dostęp pod blokadą.
+final class LockedValue<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: Value
+    init(_ initial: Value) { stored = initial }
+    var value: Value {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
+    }
 }

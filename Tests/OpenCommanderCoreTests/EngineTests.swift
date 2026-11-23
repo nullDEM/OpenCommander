@@ -279,6 +279,7 @@ final class ProgressLog: @unchecked Sendable {
 
 /// Postęp bajtowy i anulowanie w środku pliku (klonowanie APFS wyłączone, by dane faktycznie płynęły).
 final class ByteProgressTests: TempDirTestCase {
+    @discardableResult
     func bigFile(_ rel: String, mb: Int) throws -> URL {
         let u = root.appendingPathComponent(rel)
         try FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
