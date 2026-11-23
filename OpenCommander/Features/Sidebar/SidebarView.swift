@@ -57,7 +57,6 @@ struct SidebarView: View {
                             .lineLimit(1).truncationMode(.middle)
                             .tag("fav:" + url.path)
                             .help(exists ? url.path : "\(url.path) — folder niedostępny")
-                            .contextMenu { Button("Usuń z ulubionych") { state.removeFavorite(url) } }
                     }
                 }
             }
@@ -67,14 +66,12 @@ struct SidebarView: View {
                         Label(w.name, systemImage: "rectangle.split.2x1")
                             .lineLimit(1).tag("ws:" + w.id.uuidString)
                             .help("Karty i lokalizacje obu paneli: \(w.left.count) + \(w.right.count)")
-                            .contextMenu { Button("Usuń przestrzeń", role: .destructive) { state.deleteWorkspace(w) } }
                     }
                 }
             }
             Section("Miejsca") {
                 ForEach(places, id: \.2) { title, icon, url in
                     Label(title, systemImage: icon).tag("place:" + url.path).help(url.path)
-                        .contextMenu { favoriteButton(url) }
                 }
             }
             Section {
@@ -87,11 +84,6 @@ struct SidebarView: View {
                     }
                     .tag("conn:" + p.id.uuidString)
                     .help("\(p.proto.title) · \(p.displayAddress) — \(ConnectionIcons.statusText(st))")
-                    .contextMenu {
-                        if st == .connected { Button("Rozłącz") { state.disconnect(p.id) } }
-                        else { Button("Połącz") { state.openConnection(p.id) } }
-                        Button("Edytuj…") { state.sheet = .editConnection(p) }
-                    }
                 }
             } header: {
                 HStack {
@@ -119,9 +111,6 @@ struct SidebarView: View {
                         }
                     }
                     .tag("vol:" + volume.url.path).help(volume.url.path)
-                    .contextMenu {
-                        if volume.canEject { Button("Wysuń „\(volume.name)”") { state.eject(volume) } }
-                    }
                 }
             }
             if !state.recents.isEmpty {
@@ -130,12 +119,14 @@ struct SidebarView: View {
                         Label(url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent, systemImage: "clock")
                             .lineLimit(1).truncationMode(.middle)
                             .tag("recent:" + url.path).help(url.path)
-                            .contextMenu { favoriteButton(url) }
                     }
                 }
             }
         }
         .listStyle(.sidebar)
+        // Jedno menu dla całej listy zamiast `.contextMenu` na każdym wierszu: prawy klik poza wierszem (pusty obszar,
+        // nagłówek sekcji) dawał w SwiftUI `Row index -1 out of row range`; tu dostaje po prostu pusty zbiór.
+        .contextMenu(forSelectionType: String.self) { ids in rowMenu(ids) }
         .accessibilityLabel("Pasek boczny: ulubione, miejsca, woluminy i ostatnie lokalizacje")
     }
 
@@ -171,6 +162,29 @@ struct SidebarView: View {
 
     private func recentURL(_ id: String) -> URL? {
         id.hasPrefix("recent:") ? URL(fileURLWithPath: String(id.dropFirst("recent:".count))) : nil
+    }
+
+    @ViewBuilder
+    private func rowMenu(_ ids: Set<String>) -> some View {
+        if ids.count == 1, let id = ids.first {
+            if id.hasPrefix("fav:") || id.hasPrefix("place:") || id.hasPrefix("recent:") {
+                if let url = candidates.first(where: { $0.id == id })?.url ?? recentURL(id) { favoriteButton(url) }
+            } else if id.hasPrefix("ws:") {
+                if let w = state.workspaces.first(where: { "ws:" + $0.id.uuidString == id }) {
+                    Button("Usuń przestrzeń", role: .destructive) { state.deleteWorkspace(w) }
+                }
+            } else if id.hasPrefix("conn:") {
+                if let p = state.connections.profiles.first(where: { "conn:" + $0.id.uuidString == id }) {
+                    if state.connections.state(p.id) == .connected { Button("Rozłącz") { state.disconnect(p.id) } }
+                    else { Button("Połącz") { state.openConnection(p.id) } }
+                    Button("Edytuj…") { state.sheet = .editConnection(p) }
+                }
+            } else if id.hasPrefix("vol:") {
+                if let v = state.volumes.first(where: { "vol:" + $0.url.path == id }), v.canEject {
+                    Button("Wysuń „\(v.name)”") { state.eject(v) }
+                }
+            }
+        }
     }
 
     @ViewBuilder

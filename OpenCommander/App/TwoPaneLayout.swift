@@ -5,12 +5,14 @@ struct TwoPaneLayout: Layout {
     static let minPane: CGFloat = 250
     static let handleWidth: CGFloat = 9
 
-    /// Minimalna szerokość jest stała (dwa panele z separatorem), także gdy jeden panel jest ukryty: zmiana minimalnego rozmiaru
-    /// okna w trakcie przełączania paneli wymuszałaby zmianę rozmiaru okna wewnątrz przebiegu układu.
-    private static let minTotal: CGFloat = 2 * minPane + handleWidth
+    /// Szerokość preferowana (gdy nikt jej nie proponuje): dwa panele z separatorem.
+    private static let idealWidth: CGFloat = 2 * minPane + handleWidth
 
+    /// Układ przyjmuje każdą zaproponowaną szerokość i nigdy nie zgłasza więcej, niż mu dano: wymuszone minimum większe
+    /// od miejsca w oknie (pasek boczny + inspektor) wprowadzało okno AppKit w nieskończoną pętlę przeliczania ograniczeń
+    /// („The window has been marked as needing another Update Constraints…”). Panele przycina `placeSubviews`.
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        return CGSize(width: max(proposal.width ?? Self.minTotal, Self.minTotal), height: proposal.height ?? 400)
+        CGSize(width: proposal.width ?? Self.idealWidth, height: proposal.height ?? 400)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
