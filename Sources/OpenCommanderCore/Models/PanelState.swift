@@ -37,8 +37,11 @@ public final class PanelState: Identifiable {
     @ObservationIgnored private var sortTask: Task<Void, Never>?
     /// Zwiększane przy każdej zmianie kolejności i przy każdym załadowaniu — nieaktualne sortowanie w tle jest wtedy odrzucane.
     @ObservationIgnored private var sortGeneration = 0
-    @ObservationIgnored private var lastWatcherReload = Date.distantPast
+    /// Czas systemowy (monotoniczny) ostatniego odświeżenia z obserwatora — zmiana zegara nie rozregulowuje odstępu.
+    @ObservationIgnored private var lastWatcherReload: TimeInterval = -.infinity
     @ObservationIgnored private var deferredReload: Task<Void, Never>?
+    /// Zdarzenie obserwatora przyszło w trakcie ładowania — po jego zakończeniu odświeżamy jeszcze raz.
+    @ObservationIgnored private var needsReload = false
     /// Od tylu wpisów sortujemy w tle (poniżej — od razu, bez przeskoku między wątkami).
     nonisolated static let asyncSortThreshold = 1000
     /// Najkrótszy odstęp między odświeżeniami wywołanymi przez obserwatora folderu (folder z ciągłym ruchem nie zaleje interfejsu).
@@ -78,15 +81,24 @@ public final class PanelState: Identifiable {
         guard !selection.isEmpty else { return [] }
         return visibleEntries.filter { selection.contains($0.id) }
     }
-    /// Suma rozmiarów zaznaczonych plików, których rozmiar jest znany (foldery nie są liczone).
-    public var knownSelectedSize: Int64 {
-        guard !selection.isEmpty else { return 0 }
-        return visibleEntries.reduce(into: Int64(0)) { sum, e in if selection.contains(e.id) { sum += e.size ?? 0 } }
+    /// Podsumowanie zaznaczenia w jednym przejściu po liście (pasek stanu woła je raz na odświeżenie widoku).
+    public struct SelectionSummary: Equatable, Sendable {
+        public var count = 0
+        /// Suma rozmiarów zaznaczonych plików, których rozmiar jest znany (foldery nie są liczone).
+        public var knownSize: Int64 = 0
+        public var withUnknownSize = 0
     }
-    public var selectedWithUnknownSize: Int {
-        guard !selection.isEmpty else { return 0 }
-        return visibleEntries.reduce(into: 0) { count, e in if e.size == nil, selection.contains(e.id) { count += 1 } }
+    public var selectionSummary: SelectionSummary {
+        var summary = SelectionSummary()
+        guard !selection.isEmpty else { return summary }
+        for e in visibleEntries where selection.contains(e.id) {
+            summary.count += 1
+            if let size = e.size { summary.knownSize += size } else { summary.withUnknownSize += 1 }
+        }
+        return summary
     }
+    public var knownSelectedSize: Int64 { selectionSummary.knownSize }
+    public var selectedWithUnknownSize: Int { selectionSummary.withUnknownSize }
 
     private func recomputeVisible() {
         if isRecursiveSearch, let results = searchResults { visibleEntries = FileFilter.apply(results, text: filterText) }
@@ -152,6 +164,29 @@ public final class PanelState: Identifiable {
         }
     }
 
+    /// Porządek sortowania jako komparatory tabeli (`Table(sortOrder:)`). Zapis przechodzi przez `setSort`,
+    /// więc kolejność jest stosowana tak samo jak po kliknięciu nagłówka kolumny.
+    public var sortComparators: [KeyPathComparator<FileEntry>] {
+        get {
+            let order: SortOrder = sortAscending ? .forward : .reverse
+            switch sortKey {
+            case .name: return [KeyPathComparator(\FileEntry.name, order: order)]
+            case .size: return [KeyPathComparator(\FileEntry.sortSize, order: order)]
+            case .kind: return [KeyPathComparator(\FileEntry.kind, order: order)]
+            case .date: return [KeyPathComparator(\FileEntry.sortDate, order: order)]
+            }
+        }
+        set {
+            guard let first = newValue.first else { return }
+            let key: SortKey
+            if first.keyPath == \FileEntry.sortSize { key = .size }
+            else if first.keyPath == \FileEntry.kind { key = .kind }
+            else if first.keyPath == \FileEntry.sortDate { key = .date }
+            else { key = .name }
+            setSort(key: key, ascending: first.order == .forward)
+        }
+    }
+
     /// Sortuje poza głównym wątkiem (małe listy — od razu).
     nonisolated static func sortedInBackground(_ entries: [FileEntry], key: SortKey, ascending: Bool) async -> [FileEntry] {
         if entries.count < asyncSortThreshold { return FileSorter.sorted(entries, by: key, ascending: ascending) }
@@ -170,7 +205,7 @@ public final class PanelState: Identifiable {
         loadTask?.cancel()
         generation &+= 1
         let gen = generation
-        isLoading = true
+        if !isLoading { isLoading = true }
         let hidden = showHidden
         loadTask = Task { [weak self] in
             do {
@@ -214,27 +249,27 @@ public final class PanelState: Identifiable {
 
     private func reloadIfIdle() {
         guard location.isFileURL else { return }
-        let wait = Self.minWatcherReloadInterval - Date().timeIntervalSince(lastWatcherReload)
+        let wait = Self.minWatcherReloadInterval - (ProcessInfo.processInfo.systemUptime - lastWatcherReload)
         if wait > 0 {
             // Za wcześnie po poprzednim odświeżeniu: jedno odroczone odświeżenie zbierze wszystkie zdarzenia z tego czasu.
             guard deferredReload == nil else { return }
             deferredReload = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+                try? await Task.sleep(for: .seconds(wait))
                 guard !Task.isCancelled, let self else { return }
                 self.deferredReload = nil
                 self.reloadIfIdle()
             }
             return
         }
-        guard !isLoading else { return }
-        lastWatcherReload = Date()
+        guard !isLoading else { needsReload = true; return }   // nie gubimy zmiany, która przyszła w trakcie listowania
+        lastWatcherReload = ProcessInfo.processInfo.systemUptime
         reload()
     }
 
     private func refreshFreeSpace(for url: URL) {
         Task { [weak self] in
             let space = await Task.detached { Locations.freeSpace(at: url) }.value
-            guard let self, self.location == url else { return }
+            guard let self, self.location == url, self.freeSpace != space else { return }
             self.freeSpace = space
         }
     }
@@ -266,19 +301,23 @@ public final class PanelState: Identifiable {
         let listChanged = ordered != entries
         if listChanged { entries = ordered }  // odświeżenie bez zmian nie przerysowuje tabeli
         if listChanged || changed { recomputeVisible() }
-        loadError = nil
-        isLoading = false
+        // Przypisujemy tylko przy zmianie, żeby odświeżenie bez zmian niczego nie unieważniało w widokach.
+        if loadError != nil { loadError = nil }
+        if isLoading { isLoading = false }
         let ids = Set(entries.map(\.id))
+        let newSelection: Set<FileEntry.ID>
         if let select {
-            selection = select.intersection(ids)
+            newSelection = select.intersection(ids)
         } else if changed {
-            selection = []
+            newSelection = []
         } else {
-            selection = selection.intersection(ids)
+            newSelection = selection.intersection(ids)
         }
+        if newSelection != selection { selection = newSelection }
         if isRecursiveSearch && !changed { scheduleSearch() }
         // Zapis ustawień i „ostatnie” dotyczą zmiany lokalizacji; samo odświeżenie tej samej listy nie zmienia niczego do zapisania.
         if changed { onStateChange?() }
+        if needsReload { needsReload = false; reloadIfIdle() }
     }
 
     /// Wyszukiwanie w podfolderach z krótkim opóźnieniem (pisanie nie uruchamia setek skanów).
@@ -292,7 +331,7 @@ public final class PanelState: Identifiable {
         let query = filterText, root = location, hidden = showHidden
         isSearching = true
         searchTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 250_000_000)
+            try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }
             do {
                 let result = try await RecursiveSearch.search(root: root, query: query, showHidden: hidden)

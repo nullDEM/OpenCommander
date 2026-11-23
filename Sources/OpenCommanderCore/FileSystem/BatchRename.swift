@@ -40,13 +40,20 @@ public enum BatchRename {
         for (e, n) in proposed where n != e.name {
             seen[FileFilter.fold(n) + "|" + e.url.deletingLastPathComponent().path, default: 0] += 1
         }
-        return proposed.map { e, name in
-            if name == e.name { return BatchRenameItem(source: e.url, oldName: e.name, newName: name, status: .unchanged) }
-            if let problem = problem(for: e, newName: name, seen: seen, currentNames: currentNames) {
-                return BatchRenameItem(source: e.url, oldName: e.name, newName: name, status: .problem(problem))
+        var items: [BatchRenameItem] = []
+        items.reserveCapacity(proposed.count)
+        for (i, (e, name)) in proposed.enumerated() {
+            // Plan liczony w zadaniu, które można przerwać (kolejna zmiana reguły) — nie dokańczamy odczytów z dysku.
+            if i % 256 == 0, Task.isCancelled { return [] }
+            if name == e.name {
+                items.append(BatchRenameItem(source: e.url, oldName: e.name, newName: name, status: .unchanged))
+            } else if let problem = problem(for: e, newName: name, seen: seen, currentNames: currentNames) {
+                items.append(BatchRenameItem(source: e.url, oldName: e.name, newName: name, status: .problem(problem)))
+            } else {
+                items.append(BatchRenameItem(source: e.url, oldName: e.name, newName: name, status: .ok))
             }
-            return BatchRenameItem(source: e.url, oldName: e.name, newName: name, status: .ok)
         }
+        return items
     }
 
     public static func newName(for entry: FileEntry, index: Int, rule: BatchRenameRule) -> String {

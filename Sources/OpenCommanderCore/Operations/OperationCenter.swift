@@ -111,7 +111,7 @@ public final class OperationCenter {
 
     /// Czeka na zakończenie wszystkich zadań (głównie testy).
     public func waitUntilIdle() async {
-        while hasActiveJobs { try? await Task.sleep(nanoseconds: 5_000_000) }
+        while hasActiveJobs { try? await Task.sleep(for: .milliseconds(5)) }
     }
 
     // MARK: - Wewnętrzne
@@ -123,18 +123,19 @@ public final class OperationCenter {
         jobs[idx].startedAt = Date()
         runningJobID = job.id
         let engine = self.engine
+        let jobID = job.id, operation = job.operation   // do domknięć trafiają tylko wartości, nie cały `Job`
         runningTask = Task { [weak self] in
             let report = await engine.run(
-                job.operation,
+                operation,
                 conflictHandler: { [weak self] conflict in
                     guard let self else { return ConflictDecision(.skip) }
-                    return await self.askUser(conflict, jobID: job.id)
+                    return await self.askUser(conflict, jobID: jobID)
                 },
                 progress: { [weak self] p in
-                    Task { @MainActor in self?.updateProgress(job.id, p) }
+                    Task { @MainActor in self?.updateProgress(jobID, p) }
                 }
             )
-            self?.finish(job.id, report)
+            self?.finish(jobID, report)
         }
     }
 

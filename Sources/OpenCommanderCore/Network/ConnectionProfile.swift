@@ -74,6 +74,18 @@ public struct ConnectionProfile: Codable, Identifiable, Equatable, Sendable {
         self.ftpsMode = ftpsMode; self.allowInsecure = allowInsecure; self.connectTimeoutSeconds = connectTimeoutSeconds
     }
 
+    /// `baseURL` jako tekst do pola formularza (`nil` = pusty tekst). Pozwala użyć `$draft.baseURLText` zamiast ręcznego `Binding`.
+    public var baseURLText: String {
+        get { baseURL ?? "" }
+        set { baseURL = newValue }
+    }
+
+    /// `keyFilePath` jako tekst do pola formularza (`nil` = pusty tekst).
+    public var keyFilePathText: String {
+        get { keyFilePath ?? "" }
+        set { keyFilePath = newValue }
+    }
+
     public static func defaultPort(_ proto: ConnectionProtocol, ftpsMode: FTPSMode = .explicit, baseURL: String? = nil) -> Int {
         switch proto {
         case .sftp: return 22

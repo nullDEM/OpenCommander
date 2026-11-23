@@ -124,11 +124,17 @@ public struct OperationProgress: Equatable, Sendable {
 public enum ProgressFormat {
     /// Rozmiar w jednostkach dziesiętnych jak w Finderze, ale „0 B” zamiast „zero KB”.
     public static func bytes(_ n: Int64) -> String {
+        byteFormatter.string(fromByteCount: n)
+    }
+
+    /// Jeden formatter na cały proces: jest wołany dla każdej komórki „Rozmiar” i przy każdym odświeżeniu postępu.
+    /// Po utworzeniu nie jest zmieniany (`NSFormatter` odczytuje się bezpiecznie z wielu wątków).
+    private static let byteFormatter: ByteCountFormatter = {
         let f = ByteCountFormatter()
         f.countStyle = .file
         f.allowsNonnumericFormatting = false
-        return f.string(fromByteCount: n)
-    }
+        return f
+    }()
 
     /// „45 s”, „3 min 12 s”, „1 h 05 min”.
     public static func duration(_ seconds: TimeInterval) -> String {

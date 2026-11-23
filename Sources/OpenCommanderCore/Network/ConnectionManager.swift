@@ -45,7 +45,7 @@ public final class ConnectionManager {
     /// Pytanie o hasło/passphrase, gdy nie jest zapisane. `nil` = użytkownik anulował.
     @ObservationIgnored public var credentialPrompt: (@MainActor (ConnectionProfile, CredentialKind) async -> String?)?
     /// Pytanie o zaufanie do nieznanego klucza hosta. `false` = odrzucono.
-    @ObservationIgnored public var hostKeyPrompt: (@MainActor (HostKeyInfo) async -> Bool)?
+    @ObservationIgnored public var hostKeyPrompt: (@MainActor @Sendable (HostKeyInfo) async -> Bool)?
 
     public init(profileStore: ProfileStore = ProfileStore(), secrets: any SecretStore = KeychainSecretStore(),
                 trustedHostsStore: TrustedHostsStore = TrustedHostsStore(url: TrustedHostsStore.defaultURL())) {
