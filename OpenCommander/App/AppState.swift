@@ -254,7 +254,7 @@ final class AppState {
     func applyWorkspace(_ w: Workspace) {
         tabsLeft.replaceAll(with: w.left, activeIndex: w.leftActive)
         tabsRight.replaceAll(with: w.right, activeIndex: w.rightActive)
-        active = w.activePanel
+        active = panelVisibility.resolvedActive(w.activePanel)   // przestrzeń mogła zapamiętać panel, który teraz jest ukryty
         persist()
     }
 

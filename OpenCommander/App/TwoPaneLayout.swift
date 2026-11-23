@@ -5,14 +5,12 @@ struct TwoPaneLayout: Layout {
     static let minPane: CGFloat = 250
     static let handleWidth: CGFloat = 9
 
-    /// Minimalna szerokość: dwa panele z separatorem albo — gdy jeden jest ukryty (jedyny podwidok) — sam panel.
-    private func minTotal(for subviewCount: Int) -> CGFloat {
-        subviewCount == 1 ? Self.minPane : 2 * Self.minPane + Self.handleWidth
-    }
+    /// Minimalna szerokość jest stała (dwa panele z separatorem), także gdy jeden panel jest ukryty: zmiana minimalnego rozmiaru
+    /// okna w trakcie przełączania paneli wymuszałaby zmianę rozmiaru okna wewnątrz przebiegu układu.
+    private static let minTotal: CGFloat = 2 * minPane + handleWidth
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let minTotal = minTotal(for: subviews.count)
-        return CGSize(width: max(proposal.width ?? minTotal, minTotal), height: proposal.height ?? 400)
+        return CGSize(width: max(proposal.width ?? Self.minTotal, Self.minTotal), height: proposal.height ?? 400)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {

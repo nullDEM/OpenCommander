@@ -9,9 +9,18 @@ struct PanelTable: View {
     let state: AppState
     var focus: FocusState<PanelSide?>.Binding
 
-    /// Widoczność kolumn (prawy klik na nagłówku tabeli); zapamiętywana przez system.
-    @SceneStorage("OpenCommander.columns.v2") private var columns: TableColumnCustomization<FileEntry>
+    /// Widoczność kolumn (prawy klik na nagłówku tabeli); zapamiętywana przez system. Każdy panel ma własny klucz:
+    /// wspólny zapis dla dwóch tabel nadpisywałby się nawzajem, a tabela odtwarzana po ukryciu panelu odczytywałaby cudzy stan.
+    @SceneStorage private var columns: TableColumnCustomization<FileEntry>
     @State private var quickLookURL: URL?
+
+    init(panel: PanelState, state: AppState, focus: FocusState<PanelSide?>.Binding) {
+        self.panel = panel
+        self.state = state
+        self.focus = focus
+        _columns = SceneStorage(wrappedValue: TableColumnCustomization<FileEntry>(),
+                                "OpenCommander.columns.v3.\(panel.side == .left ? "left" : "right")")
+    }
 
     var body: some View {
         Table(of: FileEntry.self, selection: $panel.selection, sortOrder: $panel.sortComparators, columnCustomization: $columns) {
