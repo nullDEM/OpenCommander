@@ -38,31 +38,19 @@ struct TwoPaneSplit<Left: View, Right: View>: View {
         .onTapGesture(count: 2) { offset = 0 }
         .help("Przeciągnij, aby zmienić szerokość paneli (dwuklik: po równo)")
         .accessibilityLabel("Separator paneli")
-    }
-}
-
-private struct TwoPaneLayout: Layout {
-    var offset: CGFloat
-    static let minPane: CGFloat = 250
-    static let handleWidth: CGFloat = 9
-
-    private var minTotal: CGFloat { 2 * Self.minPane + Self.handleWidth }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        CGSize(width: max(proposal.width ?? minTotal, minTotal), height: proposal.height ?? 400)
+        // VoiceOver i Sterowanie głosem nie przeciągają — separator można przesuwać strzałkami góra/dół (jak suwak).
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: offset = min(offset + Self.keyboardStep, Self.maxOffset)
+            case .decrement: offset = max(offset - Self.keyboardStep, -Self.maxOffset)
+            @unknown default: break
+            }
+        }
+        .accessibilityAction(named: "Podziel panele po równo") { offset = 0 }
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        guard subviews.count == 3 else { return }
-        let available = max(bounds.width - Self.handleWidth, 0)
-        let lower = min(Self.minPane, available / 2)
-        let leftWidth = min(max(available / 2 + offset, lower), available - lower)
-        let rightWidth = available - leftWidth
-        subviews[0].place(at: bounds.origin, anchor: .topLeading,
-                          proposal: ProposedViewSize(width: leftWidth, height: bounds.height))
-        subviews[1].place(at: CGPoint(x: bounds.minX + leftWidth, y: bounds.minY), anchor: .topLeading,
-                          proposal: ProposedViewSize(width: Self.handleWidth, height: bounds.height))
-        subviews[2].place(at: CGPoint(x: bounds.minX + leftWidth + Self.handleWidth, y: bounds.minY), anchor: .topLeading,
-                          proposal: ProposedViewSize(width: rightWidth, height: bounds.height))
-    }
+    /// Krok przesunięcia przy obsłudze bez myszy; zakres chroni przed „nawijaniem” przesunięcia poza szerokość okna
+    /// (układ i tak je przycina do szerokości paneli).
+    private static var keyboardStep: CGFloat { 40 }
+    private static var maxOffset: CGFloat { 3000 }
 }

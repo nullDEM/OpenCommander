@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AppCommands: Commands {
-    let state: AppState
+    @Bindable var state: AppState
     @Environment(\.openWindow) private var openWindow
 
     private var fKey: (Int) -> KeyEquivalent = { n in KeyEquivalent(Character(UnicodeScalar(0xF704 + n - 1)!)) }
@@ -125,9 +125,9 @@ struct AppCommands: Commands {
             Button("Filtruj folder") { state.requestFilter() }
                 .keyboardShortcut("f", modifiers: .command)
                 .disabled(state.isBusyWithDialog)
-            Toggle("Panel informacji", isOn: Binding(get: { state.showInspector }, set: { state.showInspector = $0 }))
+            Toggle("Panel informacji", isOn: $state.showInspector)
                 .keyboardShortcut("i", modifiers: .command)
-            Toggle("Pokaż pliki ukryte", isOn: Binding(get: { state.showHidden }, set: { state.setShowHidden($0) }))
+            Toggle("Pokaż pliki ukryte", isOn: $state.showHiddenFiles)
                 .keyboardShortcut(".", modifiers: [.command, .shift])
         }
         CommandMenu("Przejdź") {

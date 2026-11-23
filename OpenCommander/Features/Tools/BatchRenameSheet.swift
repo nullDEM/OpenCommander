@@ -14,8 +14,13 @@ struct BatchRenameSheet: View {
     @State private var planning = true
 
     var body: some View {
-        let changes = items.filter { $0.status == .ok }.count
-        let problems = items.filter { if case .problem = $0.status { return true } else { return false } }.count
+        let (changes, problems) = items.reduce(into: (0, 0)) { acc, item in   // jedno przejście
+            switch item.status {
+            case .ok: acc.0 += 1
+            case .problem: acc.1 += 1
+            case .unchanged: break
+            }
+        }
         VStack(alignment: .leading, spacing: 12) {
             Text("Zmień nazwy: \(Polish.items(entries.count))").font(.headline)
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
@@ -94,10 +99,12 @@ struct BatchRenameSheet: View {
         .task(id: rule) {
             planning = true
             // Pierwszy plan od razu; kolejne po krótkiej pauzie w pisaniu (każda zmiana reguły przerywa poprzednie zadanie).
-            if !items.isEmpty { try? await Task.sleep(nanoseconds: 150_000_000) }
+            if !items.isEmpty { try? await Task.sleep(for: .milliseconds(150)) }
             guard !Task.isCancelled else { return }
             let entries = entries, rule = rule
-            let result = await Task.detached(priority: .userInitiated) { BatchRename.plan(entries, rule: rule) }.value
+            // Zadanie detached nie dziedziczy anulowania — przekazujemy je jawnie, żeby stary plan nie liczył się dalej.
+            let planTask = Task.detached(priority: .userInitiated) { BatchRename.plan(entries, rule: rule) }
+            let result = await withTaskCancellationHandler { await planTask.value } onCancel: { planTask.cancel() }
             guard !Task.isCancelled else { return }
             items = result
             planning = false

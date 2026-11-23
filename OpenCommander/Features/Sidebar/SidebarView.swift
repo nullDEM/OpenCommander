@@ -3,8 +3,12 @@ import OpenCommanderCore
 
 struct SidebarView: View {
     let state: AppState
+    /// Gdy włączone w ustawieniach dostępności, stan połączenia nie może być przekazany samym kolorem kropki.
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
-    private var places: [(String, String, URL)] { Locations.standard() }
+    /// Standardowe foldery użytkownika nie zmieniają się w trakcie działania — liczymy raz, nie przy każdym odczycie w `body`.
+    private static let standardPlaces = Locations.standard()
+    private var places: [(String, String, URL)] { Self.standardPlaces }
 
     /// Kandydaci do podświetlenia w kolejności pierwszeństwa: ulubione, miejsca, woluminy.
     private var candidates: [(id: String, url: URL)] {
@@ -80,8 +84,7 @@ struct SidebarView: View {
                     HStack(spacing: 4) {
                         Label(p.name, systemImage: ConnectionIcons.symbol(p)).lineLimit(1).truncationMode(.middle)
                         Spacer(minLength: 4)
-                        Circle().fill(statusColor(st)).frame(width: 7, height: 7)
-                            .accessibilityLabel(ConnectionIcons.statusText(st))
+                        statusIndicator(st)
                     }
                     .tag("conn:" + p.id.uuidString)
                     .help("\(p.proto.title) · \(p.displayAddress) — \(ConnectionIcons.statusText(st))")
@@ -135,6 +138,27 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .accessibilityLabel("Pasek boczny: ulubione, miejsca, woluminy i ostatnie lokalizacje")
+    }
+
+    /// Kropka w kolorze stanu; przy „Rozróżniaj bez użycia koloru” — symbol o innym kształcie dla każdego stanu.
+    @ViewBuilder
+    private func statusIndicator(_ s: ConnectionManager.State) -> some View {
+        if differentiateWithoutColor {
+            Image(systemName: statusSymbol(s)).font(.caption2).foregroundStyle(statusColor(s))
+                .accessibilityLabel(ConnectionIcons.statusText(s))
+        } else {
+            Circle().fill(statusColor(s)).frame(width: 7, height: 7)
+                .accessibilityLabel(ConnectionIcons.statusText(s))
+        }
+    }
+
+    private func statusSymbol(_ s: ConnectionManager.State) -> String {
+        switch s {
+        case .connected: return "checkmark.circle.fill"
+        case .connecting: return "ellipsis.circle.fill"
+        case .failed: return "exclamationmark.circle.fill"
+        case .disconnected: return "circle"
+        }
     }
 
     private func statusColor(_ s: ConnectionManager.State) -> Color {

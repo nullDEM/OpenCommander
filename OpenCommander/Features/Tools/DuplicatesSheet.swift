@@ -37,8 +37,7 @@ struct DuplicatesSheet: View {
                     ForEach(groups) { g in
                         Section("\(ProgressFormat.bytes(g.size)) · \(g.files.count) kopii · do odzyskania \(ProgressFormat.bytes(g.wastedBytes))") {
                             ForEach(g.files, id: \.url) { f in
-                                Toggle(isOn: Binding(get: { marked.contains(f.url) },
-                                                     set: { if $0 { marked.insert(f.url) } else { marked.remove(f.url) } })) {
+                                Toggle(isOn: $marked.contains(f.url)) {
                                     VStack(alignment: .leading, spacing: 1) {
                                         Text(f.url.lastPathComponent).lineLimit(1)
                                         Text(relative(f.url) + (f.modificationDate.map { " · " + $0.formatted(date: .abbreviated, time: .shortened) } ?? ""))

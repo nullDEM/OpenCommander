@@ -25,7 +25,7 @@ struct RootView: View {
                     .inspectorColumnWidth(min: 220, ideal: 270, max: 360)
             }
         }
-        .toolbar { toolbar }
+        .toolbar { MainToolbar(state: state) }
         .onChange(of: focus) { _, new in if let new { state.active = new } }
         .onChange(of: state.active) { _, new in focus = new; state.persist() }
         .onAppear { focus = state.active }
@@ -56,18 +56,16 @@ struct RootView: View {
             }
         }
         .connectionPrompts(state, topLevel: true)
-        .sheet(item: Binding(get: { state.operations.pendingConflict }, set: { _ in })) { pending in
+        .sheet(item: $state.conflictSheetItem) { pending in
             ConflictSheet(pending: pending, operations: state.operations)
         }
-        .confirmationDialog(trashTitle, isPresented: Binding(get: { !state.pendingTrash.isEmpty }, set: { if !$0 { state.pendingTrash = [] } }),
-                            titleVisibility: .visible) {
+        .confirmationDialog(trashTitle, isPresented: $state.showsTrashDialog, titleVisibility: .visible) {
             Button("Przenieś do Kosza", role: .destructive) { state.confirmTrash() }
             Button("Anuluj", role: .cancel) { state.pendingTrash = [] }
         } message: {
             Text("Elementy trafią do Kosza i będzie można je stamtąd przywrócić (Kosz systemu nie jest opróżniany przez aplikację).")
         }
-        .confirmationDialog(remoteDeleteTitle, isPresented: Binding(get: { state.pendingRemoteDelete != nil }, set: { if !$0 { state.pendingRemoteDelete = nil } }),
-                            titleVisibility: .visible) {
+        .confirmationDialog(remoteDeleteTitle, isPresented: $state.showsRemoteDeleteDialog, titleVisibility: .visible) {
             Button("Usuń z serwera", role: .destructive) { state.confirmRemoteDelete() }
             Button("Anuluj", role: .cancel) { state.pendingRemoteDelete = nil }
         } message: {
@@ -75,7 +73,7 @@ struct RootView: View {
                 Text("Serwer: \(r.serverName)\nFolder: \(r.path)\nElementy: \(Polish.items(r.entries.count))\n\nTo NIE jest Kosz — usunięcie na serwerze może być nieodwracalne. Foldery są usuwane razem z zawartością.")
             }
         }
-        .alert("Błąd", isPresented: Binding(get: { state.alertMessage != nil }, set: { if !$0 { state.alertMessage = nil } })) {
+        .alert("Błąd", isPresented: $state.showsAlert) {
             Button("OK", role: .cancel) {}
         } message: { Text(state.alertMessage ?? "") }
     }
@@ -89,37 +87,5 @@ struct RootView: View {
         let list = state.pendingTrash
         if list.count == 1 { return "Przenieść „\(list[0].name)” do Kosza?" }
         return "Przenieść \(Polish.items(list.count)) do Kosza?"
-    }
-
-    @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        ToolbarItemGroup {
-            Button { state.requestNewFolder() } label: { Label("Nowy folder", systemImage: "folder.badge.plus") }
-                .help("Nowy folder (⇧⌘N)")
-            Button { state.requestRename() } label: { Label("Zmień nazwę", systemImage: "pencil") }
-                .help("Zmień nazwę (F2)")
-                .disabled(state.activePanel.selection.count != 1)
-        }
-        ToolbarItemGroup {
-            Button { state.transferSelection(.copy) } label: { Label("Kopiuj do drugiego panelu", systemImage: "doc.on.doc") }
-                .help("Kopiuj do drugiego panelu (F5)")
-                .disabled(!state.canCopy)
-            Button { state.transferSelection(.move) } label: { Label("Przenieś do drugiego panelu", systemImage: "arrow.right.doc.on.clipboard") }
-                .help("Przenieś do drugiego panelu (F6)")
-                .disabled(!state.canMove)
-            Button { state.requestTrash() } label: { Label(state.activePanel.isRemote ? "Usuń z serwera" : "Przenieś do Kosza", systemImage: "trash") }
-                .help(state.activePanel.isRemote ? "Usuń z serwera (⌘⌫) — nie trafia do Kosza" : "Przenieś do Kosza (⌘⌫)")
-                .disabled(state.activePanel.selection.isEmpty)
-        }
-        ToolbarItemGroup {
-            Toggle(isOn: Binding(get: { state.showHidden }, set: { state.setShowHidden($0) })) {
-                Label("Pliki ukryte", systemImage: state.showHidden ? "eye" : "eye.slash")
-            }
-            .help("Pokaż / ukryj pliki ukryte (⇧⌘.)")
-            Button { state.activePanel.reload() } label: { Label("Odśwież", systemImage: "arrow.clockwise") }
-                .help("Odśwież (⌘R)")
-            Toggle(isOn: $state.showInspector) { Label("Informacje", systemImage: "info.circle") }
-                .help("Panel informacji (⌘I)")
-        }
     }
 }

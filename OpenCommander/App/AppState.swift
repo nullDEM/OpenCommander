@@ -3,40 +3,6 @@ import Observation
 import OpenCommanderCore
 import OpenCommanderRemote
 
-enum ActiveSheet: Identifiable {
-    case newFolder
-    case rename(FileEntry)
-    case saveWorkspace
-    case batchRename([FileEntry])
-    case compareFolders
-    case duplicates(URL)
-    case connections
-    case editConnection(ConnectionProfile?)
-    case trustedHosts
-
-    var id: String {
-        switch self {
-        case .saveWorkspace: return "saveWorkspace"
-        case .batchRename: return "batchRename"
-        case .compareFolders: return "compare"
-        case .duplicates(let u): return "dups-\(u.path)"
-        case .connections: return "connections"
-        case .editConnection(let p): return "edit-\(p?.id.uuidString ?? "new")"
-        case .trustedHosts: return "trustedHosts"
-        case .newFolder: return "newFolder"
-        case .rename(let e): return "rename-\(e.id)"
-        }
-    }
-}
-
-/// Zdalne usuwanie czeka na potwierdzenie: serwer, ścieżka, liczba elementów.
-struct RemoteDeleteRequest: Identifiable {
-    let id = UUID()
-    let entries: [FileEntry]
-    let serverName: String
-    let path: String
-}
-
 @MainActor @Observable
 final class AppState {
     let tabsLeft: PanelTabs
@@ -609,9 +575,4 @@ final class AppState {
             return error.localizedDescription
         }
     }
-}
-
-/// Słaba referencja w pudełku — pozwala fabryce kart sięgnąć do `AppState` po zakończeniu jego inicjalizacji.
-final class WeakBox<T: AnyObject> {
-    weak var value: T?
 }
