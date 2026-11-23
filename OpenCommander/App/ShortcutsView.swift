@@ -13,6 +13,7 @@ struct ShortcutsView: View {
         g("Nawigacja", [
             ("Tab", "przełącz aktywny panel"),
             ("⌘`", "przełącz panel (z menu)"),
+            ("⌥⌘←  /  ⌥⌘→", "ukryj / pokaż lewy / prawy panel (drugi zajmuje całe okno)"),
             ("Enter  /  ⌘↓", "otwórz zaznaczone (folder: wejdź)"),
             ("⌘↑", "folder nadrzędny"),
             ("⌘[  /  ⌘]", "wstecz / dalej"),

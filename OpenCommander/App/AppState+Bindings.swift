@@ -21,6 +21,17 @@ extension AppState {
         set { if !newValue { alertMessage = nil } }
     }
 
+    /// Widoczność paneli (przyciski paska narzędzi): zapis przechodzi przez `setPanelVisible`, który pilnuje, by jeden panel został.
+    var showsLeftPanel: Bool {
+        get { panelVisibility.isVisible(.left) }
+        set { setPanelVisible(.left, newValue) }
+    }
+
+    var showsRightPanel: Bool {
+        get { panelVisibility.isVisible(.right) }
+        set { setPanelVisible(.right, newValue) }
+    }
+
     /// Pliki ukryte: zmiana przechodzi przez `setShowHidden` (odświeża oba panele i zapisuje ustawienie).
     var showHiddenFiles: Bool {
         get { showHidden }

@@ -26,6 +26,14 @@ struct MainToolbar: ToolbarContent {
                 .disabled(state.activePanel.selection.isEmpty)
         }
         ToolbarItemGroup {
+            Toggle(isOn: $state.showsLeftPanel) { Label("Lewy panel", systemImage: "rectangle.lefthalf.inset.filled") }
+                .help(state.showsLeftPanel ? "Ukryj lewy panel (⌥⌘←)" : "Pokaż lewy panel (⌥⌘←)")
+                .disabled(!state.panelVisibility.canToggle(.left))
+            Toggle(isOn: $state.showsRightPanel) { Label("Prawy panel", systemImage: "rectangle.righthalf.inset.filled") }
+                .help(state.showsRightPanel ? "Ukryj prawy panel (⌥⌘→)" : "Pokaż prawy panel (⌥⌘→)")
+                .disabled(!state.panelVisibility.canToggle(.right))
+        }
+        ToolbarItemGroup {
             Toggle(isOn: $state.showHiddenFiles) {
                 Label("Pliki ukryte", systemImage: state.showHidden ? "eye" : "eye.slash")
             }

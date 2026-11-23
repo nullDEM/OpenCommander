@@ -16,6 +16,8 @@ final class AppState {
     @ObservationIgnored private let journal = TempJournal.default
 
     var active: PanelSide = .left
+    /// Który panel jest ukryty (najwyżej jeden). Ukryty panel zachowuje karty i lokalizację; wraca w tym samym stanie.
+    private(set) var panelVisibility: PanelVisibility { didSet { if panelVisibility != oldValue { persist() } } }
     private(set) var showHidden: Bool
     var operationsExpanded: Bool { didSet { persist() } }
     var sheet: ActiveSheet?
@@ -51,7 +53,9 @@ final class AppState {
         availableFavorites = Set(s.favorites.map { Self.normalized($0).path })   // do czasu sprawdzenia w tle zakładamy, że istnieją
         recents = s.recents.map(Self.normalized)
         showInspector = s.inspectorVisible
-        active = s.activePanel
+        let visibility = PanelVisibility(hidden: s.hiddenPanel)
+        panelVisibility = visibility
+        active = visibility.resolvedActive(s.activePanel)   // ukryty panel nie może być aktywny
         workspaces = s.workspaces
         // Fabryka kart potrzebuje `self` (ukryte pliki, powiadomienia o zmianach), który nie jest jeszcze gotowy —
         // dlatego słaba referencja ustawiana na końcu inicjalizacji.
@@ -154,7 +158,32 @@ final class AppState {
             || hostKeyPrompts.current != nil || credentialPrompts.current != nil || pendingRemoteDelete != nil
     }
 
-    func switchPanel() { active = active.other }
+    /// Przełącza aktywny panel (Tab); przy ukrytym panelu nie ma dokąd — aktywny zostaje widoczny.
+    func switchPanel() {
+        guard !panelVisibility.isSinglePanel else { return }
+        active = active.other
+    }
+
+    // MARK: - Ukrywanie panelu
+
+    /// Czy drugi (niż aktywny) panel jest widoczny — tylko wtedy kopiowanie i przenoszenie „do drugiego panelu” ma sens.
+    var isOtherPanelVisible: Bool { panelVisibility.isVisible(active.other) }
+
+    /// Pokazuje lub ukrywa panel. Nie da się ukryć obu: gdy jeden jest ukryty, ukrycie drugiego jest ignorowane.
+    /// Ukrycie aktywnego panelu przenosi aktywność na widoczny.
+    func setPanelVisible(_ side: PanelSide, _ visible: Bool) {
+        guard panelVisibility.setVisible(visible, side: side) else { return }
+        active = panelVisibility.resolvedActive(active)
+    }
+
+    func togglePanel(_ side: PanelSide) { setPanelVisible(side, !panelVisibility.isVisible(side)) }
+
+    /// Otwiera wolumin z paska bocznego: dyski zawsze w prawym panelu, a gdy jest ukryty — w widocznym.
+    func openVolume(_ url: URL) {
+        let side = panelVisibility.visibleSide(preferring: .right)
+        active = side
+        panel(side).navigate(to: url)
+    }
 
     func persist() {
         func ps(_ p: PanelState) -> PanelSettings {
@@ -166,7 +195,7 @@ final class AppState {
                                inspectorVisible: showInspector,
                                leftTabs: tabsLeft.snapshot, rightTabs: tabsRight.snapshot,
                                leftActiveTab: tabsLeft.activeIndex, rightActiveTab: tabsRight.activeIndex,
-                               workspaces: workspaces))
+                               workspaces: workspaces, hiddenPanel: panelVisibility.hidden))
     }
 
     // MARK: - Karty
@@ -424,9 +453,9 @@ final class AppState {
 
     /// Kopiowanie do tego samego folderu jest dozwolone (powstaje „… kopia”); przeniesienie — nie ma sensu.
     /// Kopiowanie: lokalne ↔ zdalne (upload/pobieranie). Serwer → serwer nie jest obsługiwany.
-    var canCopy: Bool { !activePanel.selection.isEmpty && !(activePanel.isRemote && otherPanel.isRemote) }
+    var canCopy: Bool { !activePanel.selection.isEmpty && isOtherPanelVisible && !(activePanel.isRemote && otherPanel.isRemote) }
     /// Przenoszenie tylko lokalnie — między lokalnym a zdalnym wyłącznie kopiowanie (żadne źródło nie jest usuwane).
-    var canMove: Bool { !activePanel.selection.isEmpty && !anyPanelRemote && activePanel.location != otherPanel.location }
+    var canMove: Bool { !activePanel.selection.isEmpty && isOtherPanelVisible && !anyPanelRemote && activePanel.location != otherPanel.location }
 
     func transferSelection(_ kind: OperationKind) {
         let sources = activePanel.selectedEntries.map(\.url)
@@ -493,7 +522,7 @@ final class AppState {
         let entries = activePanel.selectedEntries
         if !entries.isEmpty { sheet = .batchRename(entries) }
     }
-    func requestCompare() { if !anyPanelRemote { sheet = .compareFolders } }
+    func requestCompare() { if !anyPanelRemote && !panelVisibility.isSinglePanel { sheet = .compareFolders } }
     func requestDuplicates() { if !activePanel.isRemote { sheet = .duplicates(activePanel.location) } }
 
     func applyBatchRename(_ items: [BatchRenameItem]) async -> BatchRename.Outcome {

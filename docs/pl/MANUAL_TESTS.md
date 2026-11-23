@@ -46,6 +46,7 @@ Utwórz folder `~/OC-test` z podfolderami `A` i `B`, w `A` kilka plików (w tym 
 - [ ] **⇧⌘K** przy dwóch różnych folderach pokazuje różnice; „Kopiuj zaznaczone →/←” przenosi je do kolejki; foldery takie same → „Foldery są takie same”.
 - [ ] **Duplikaty:** „Szukaj duplikatów” działa dopiero po kliknięciu; „Przerwij” działa; zaznaczenie wszystkich kopii w grupie jest odrzucane; usunięcie trafia do Kosza.
 - [ ] **Separator:** przeciągnięcie zmienia szerokość paneli, nie da się zejść poniżej ok. 250 pt, dwuklik przywraca po równo; start z otwartym panelem informacji bez awarii.
+- [ ] **Ukrywanie panelu:** przełączniki na pasku narzędzi i Widok → „Lewy panel” / „Prawy panel” (⌥⌘← / ⌥⌘→) ukrywają / pokazują panel, a drugi zajmuje całe okno; ostatniego widocznego panelu nie da się ukryć (przełącznik nieaktywny); przy jednym panelu Tab / ⌘` i porównanie folderów są nieaktywne; kopiowanie i przenoszenie są nieaktywne; otwarcie woluminu z paska bocznego trafia do widocznego panelu; wybór przetrwa restart aplikacji; po ponownym pokazaniu panel ma te same karty i lokalizację.
 - [ ] Prawy klik na nagłówku tabeli pozwala ukryć kolumny (np. „Rodzaj”) — sprawdź, czy ustawienie działa i się zapamiętuje.
 - [ ] Jasny i ciemny motyw wyglądają poprawnie.
 

@@ -1,10 +1,14 @@
 import SwiftUI
 import AppKit
+import OpenCommanderCore
 
 /// Dwa panele z przeciąganym separatorem. Zamiast `HSplitView` (który razem z inspektorem wpadał w pętlę
 /// aktualizacji ograniczeń AppKit) używa własnego `Layout`: szerokość kontenera nie wraca do stanu widoku,
 /// przesunięcie jest tylko liczbą pikseli względem podziału po połowie i jest przycinane w układzie.
 struct TwoPaneSplit<Left: View, Right: View>: View {
+    /// Ukryty panel (`nil` = oba widoczne). Ukryty panel nie jest w ogóle budowany; widoczny zachowuje tożsamość widoku
+    /// (przewijanie, fokus), bo każdy z trzech elementów ma w układzie własne, stałe miejsce.
+    var hidden: PanelSide?
     @ViewBuilder var left: Left
     @ViewBuilder var right: Right
     @State private var offset: CGFloat = 0
@@ -12,9 +16,9 @@ struct TwoPaneSplit<Left: View, Right: View>: View {
 
     var body: some View {
         TwoPaneLayout(offset: offset) {
-            left
-            handle
-            right
+            if hidden != .left { left }
+            if hidden == nil { handle }
+            if hidden != .right { right }
         }
     }
 

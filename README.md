@@ -30,7 +30,7 @@ moved to the Trash by an app without Full Disk Access. In that case OpenCommande
 
 | Feature | How |
 |---|---|
-| Two independent panels | Tabs in each panel (⌘T, up to 10), workspaces that save and restore both panels' tabs |
+| Two independent panels | Tabs in each panel (⌘T, up to 10), workspaces that save and restore both panels' tabs; either panel can be hidden (⌥⌘← / ⌥⌘→) so the other fills the window |
 | Browsing | Multi-select table with sorting, breadcrumbs, history, draggable divider, configurable columns, automatic refresh of the open folder |
 | Sidebar | Favorites, places, volumes (with an **eject** button for USB drives, cards and disk images, never the system disk), recent locations, **connections** |
 | Search | ⌘F by name in the folder and subfolders (case and diacritics insensitive), Quick Look on Space, info panel (⌘I) with folder size computed on demand only |
@@ -170,6 +170,7 @@ If the repository lives in an iCloud-synced folder (for example Documents), code
 | Shortcut | Action |
 |---|---|
 | Tab, ⌘` | switch panel |
+| ⌥⌘← / ⌥⌘→ | hide / show the left / right panel (the other one fills the window; one always stays visible) |
 | Enter, ⌘↓ | open |
 | ⌘↑ / ⌘[ / ⌘] | parent folder / back / forward |
 | ⌘R | refresh |

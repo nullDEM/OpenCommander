@@ -47,7 +47,7 @@ struct PanelContextMenu: View {
         Button(copyTitle) { state.select(ids, in: panel); state.transferSelection(.copy) }
             .disabled(!state.canCopy)
         Button("Przenieś do drugiego panelu") { state.select(ids, in: panel); state.transferSelection(.move) }
-            .disabled(state.anyPanelRemote || panel.location == state.panel(panel.side.other).location)
+            .disabled(!state.panelVisibility.isVisible(panel.side.other) || state.anyPanelRemote || panel.location == state.panel(panel.side.other).location)
         if entries.count == 1 { Button("Zmień nazwę…") { state.select(ids, in: panel); state.requestRename() } }
         Divider()
         Button(panel.isRemote ? "Usuń z serwera…" : "Przenieś do Kosza", role: .destructive) { state.select(ids, in: panel); state.requestTrash() }

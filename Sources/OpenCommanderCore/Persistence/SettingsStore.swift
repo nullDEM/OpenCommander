@@ -24,12 +24,16 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var leftActiveTab: Int
     public var rightActiveTab: Int
     public var workspaces: [Workspace]
+    /// Ukryty panel (`nil` = oba widoczne). W starszych ustawieniach brak tego pola oznacza oba widoczne.
+    public var hiddenPanel: PanelSide?
 
     public init(left: PanelSettings, right: PanelSettings, showHidden: Bool = false,
                 activePanel: PanelSide = .left, operationsExpanded: Bool = true,
                 favorites: [String] = [], recents: [String] = [], inspectorVisible: Bool = false,
                 leftTabs: [PanelSettings] = [], rightTabs: [PanelSettings] = [],
-                leftActiveTab: Int = 0, rightActiveTab: Int = 0, workspaces: [Workspace] = []) {
+                leftActiveTab: Int = 0, rightActiveTab: Int = 0, workspaces: [Workspace] = [],
+                hiddenPanel: PanelSide? = nil) {
+        self.hiddenPanel = hiddenPanel
         self.leftTabs = leftTabs; self.rightTabs = rightTabs
         self.leftActiveTab = leftActiveTab; self.rightActiveTab = rightActiveTab; self.workspaces = workspaces
         self.left = left; self.right = right; self.showHidden = showHidden
@@ -53,6 +57,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         leftActiveTab = try c.decodeIfPresent(Int.self, forKey: .leftActiveTab) ?? 0
         rightActiveTab = try c.decodeIfPresent(Int.self, forKey: .rightActiveTab) ?? 0
         workspaces = try c.decodeIfPresent([Workspace].self, forKey: .workspaces) ?? []
+        hiddenPanel = try c.decodeIfPresent(PanelSide.self, forKey: .hiddenPanel)
     }
 
     public static var defaults: AppSettings {

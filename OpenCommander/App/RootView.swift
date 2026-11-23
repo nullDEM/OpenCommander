@@ -11,7 +11,7 @@ struct RootView: View {
                 .navigationSplitViewColumnWidth(min: 150, ideal: 190, max: 260)
         } detail: {
             VStack(spacing: 0) {
-                TwoPaneSplit {
+                TwoPaneSplit(hidden: state.panelVisibility.hidden) {
                     PanelView(panel: state.left, tabs: state.tabsLeft, state: state, focus: $focus)
                         .id(state.left.id) // nowa karta = świeży stan widoku (filtr, podgląd)
                 } right: {

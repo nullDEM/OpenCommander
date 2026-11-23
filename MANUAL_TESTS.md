@@ -46,6 +46,7 @@ Create a folder `~/OC-test` with subfolders `A` and `B`. Put a few files in `A` 
 - [ ] **⇧⌘K** with two different folders shows the differences; "Kopiuj zaznaczone →/←" (copy selected) puts them in the queue; identical folders → "Foldery są takie same" (the folders are the same).
 - [ ] **Duplicates:** "Szukaj duplikatów" (find duplicates) only works after the click; "Przerwij" (stop) works; selecting all copies in a group is rejected; deleting goes to the Trash.
 - [ ] **Divider:** dragging changes the panel widths, you cannot go below about 250 pt, a double-click restores equal widths; start with the info panel open without a crash.
+- [ ] **Hiding a panel:** the toolbar toggles and View → "Lewy panel" / "Prawy panel" (⌥⌘← / ⌥⌘→) hide / show a panel and the other one fills the window; the last visible panel cannot be hidden (the toggle is disabled); Tab / ⌘` and compare folders are disabled with one panel; copy / move are disabled; opening a volume from the sidebar goes to the visible panel; the choice survives restarting the app; showing the panel again keeps its tabs and location.
 - [ ] Right-click on the table header lets you hide columns (for example "Rodzaj" / Kind): check that the setting works and is remembered.
 - [ ] Light and dark themes look right.
 - [ ] **Pomoc → Skróty klawiszowe** (Help → Keyboard Shortcuts, ⇧⌘/) opens the list window; check that the listed shortcuts really work.

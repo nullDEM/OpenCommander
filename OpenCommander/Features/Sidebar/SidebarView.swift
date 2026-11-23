@@ -41,9 +41,8 @@ struct SidebarView: View {
                 }
                 guard let url = candidates.first(where: { $0.id == id })?.url ?? recentURL(id) else { return }
                 if id.hasPrefix("vol:") {
-                    // Dyski i woluminy zawsze otwierają się w prawym panelu.
-                    state.active = .right
-                    state.right.navigate(to: url)
+                    // Dyski i woluminy otwierają się w prawym panelu (a gdy jest ukryty — w widocznym).
+                    state.openVolume(url)
                 } else {
                     state.activePanel.navigate(to: url)
                 }
