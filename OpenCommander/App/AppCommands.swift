@@ -3,6 +3,8 @@ import SwiftUI
 struct AppCommands: Commands {
     @Bindable var state: AppState
     @Environment(\.openWindow) private var openWindow
+    /// Lista plików na `NSTableView` (macOS 15+). Wyłączenie wraca do tabeli SwiftUI.
+    @AppStorage(FileListSetting.key) private var fastFileList = true
 
     private var fKey: (Int) -> KeyEquivalent = { n in KeyEquivalent(Character(UnicodeScalar(0xF704 + n - 1)!)) }
 
@@ -138,6 +140,11 @@ struct AppCommands: Commands {
             Toggle("Prawy panel", isOn: $state.showsRightPanel)
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
                 .disabled(state.isBusyWithDialog || !state.panelVisibility.canToggle(.right))
+            if #available(macOS 15.0, *) {
+                Divider()
+                Toggle("Szybka lista plików", isOn: $fastFileList)
+                    .help("Lista na NSTableView — płynna przy dziesiątkach tysięcy plików. Wyłącz, aby wrócić do tabeli SwiftUI.")
+            }
         }
         CommandMenu("Przejdź") {
             Button("Folder nadrzędny") { state.activePanel.goUp() }

@@ -52,6 +52,17 @@ Utwórz folder `~/OC-test` z podfolderami `A` i `B`, w `A` kilka plików (w tym 
 
 - [ ] **Pomoc → Skróty klawiszowe** (⇧⌘/) otwiera okno z listą; sprawdź, czy skróty z listy faktycznie działają.
 
+## Etap 3 optymalizacji — szybka lista plików (NSTableView, macOS 15+)
+Automatycznie sprawdza autotest interfejsu (`OC_UI_SELFTEST=1`): Tab, strzałki, zaznaczanie z Shift/⌘, kliknięcia, powiązanie sortowania, dwuklik, Return, filtr, ukrywanie paneli, menu kolumn, zawartość menu kontekstowego. Ręcznie:
+- [ ] Przeciąganie plików między panelami (kopiowanie; z ⌥ — przeniesienie) oraz z Findera do panelu; przeciąganie na zewnątrz (Finder, inne programy) nie jest oferowane.
+- [ ] Klik w nagłówki kolumn sortuje (pierwszy rosnąco, drugi malejąco); foldery zostają na górze.
+- [ ] Prawy klik na wierszu, na wierszu spoza zaznaczenia i w pustym miejscu: właściwe menu; każda akcja działa (Otwórz za pomocą, Szybki podgląd, Kopiuj ścieżkę, Informacje, zmiana nazwy, Kosz).
+- [ ] Spacja otwiera/zamyka Szybki podgląd; ⌥C / ⌥V kopiuje i wkleja pliki.
+- [ ] Szerokość, kolejność i widoczność kolumn (prawy klik na nagłówku) zostają po ponownym uruchomieniu, osobno dla każdego panelu.
+- [ ] Wybieranie przez pisanie (wpisanie nazwy przeskakuje do elementu); VoiceOver czyta wiersze.
+- [ ] Widok → „Szybka lista plików” wyłączona przywraca tabelę SwiftUI; włączona — szybką listę.
+- [ ] Folder z 50 000 elementów: bez zawieszeń przy wejściu, przewijaniu i zaznaczaniu.
+
 ## Operacje
 - [ ] Nowy folder (w tym nazwa z `/`, pusta, istniejąca → czytelny błąd, brak zmian na dysku).
 - [ ] Zmiana nazwy; zmiana **samej wielkości liter** (`raport.xlsx` → `Raport.xlsx`).

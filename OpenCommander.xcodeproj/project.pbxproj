@@ -14,6 +14,7 @@
 		116E58EA9F5D89C8979BADE2 /* ShortcutsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11E3F14C5548DBA1CB4BE297 /* ShortcutsView.swift */; };
 		11B06D6DE96D7566394486C1 /* PanelTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78B828909310895917AF02D1 /* PanelTable.swift */; };
 		1BE1754EDBA83615844699D0 /* CompareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE470C2F4B0EF66851C945C /* CompareSheet.swift */; };
+		1D9B5F4DECFA764DFEAAEB17 /* FileListSetting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0412F6C2F7C7DBBC641ED554 /* FileListSetting.swift */; };
 		1EA027DB7BAF5830FF431467 /* AppCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF69DC222746114ED8D8D05C /* AppCommands.swift */; };
 		1F43E105233AB4AD73D9F36E /* ModifiedDateText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE206B996DD25F60EA64560 /* ModifiedDateText.swift */; };
 		20C84024E6E9B5E7B455851B /* CredentialSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 082AA65E2D3DD8C314EE5B91 /* CredentialSheet.swift */; };
@@ -25,6 +26,7 @@
 		35C9C5AB316CC6CF8E5058E5 /* OpenCommanderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E765E400F7ED150B12F186E3 /* OpenCommanderApp.swift */; };
 		363C915DA3BD72A3905B0B2B /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2E1CAC659463CEA253C1CB /* OpenWithMenu.swift */; };
 		4A7697AF4CA11E4B7E852075 /* InfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A58FA368EF8ED88A7F143805 /* InfoPanel.swift */; };
+		52604988EB5A5062B9A2BE55 /* FastPanelTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1939832B1BACE53CFC3F3724 /* FastPanelTable.swift */; };
 		66FD241B56D3FB5B06D8A04B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4CADCE370033D94E97C19D6C /* Assets.xcassets */; };
 		6D566B14D1A3DA79F692009A /* AppState+Bindings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E5679A28C64EE6A46E5277 /* AppState+Bindings.swift */; };
 		6DC745F68BCEB7A65EA35B90 /* OpenCommanderCore in Frameworks */ = {isa = PBXBuildFile; productRef = 07BEAAC830FE4B1B6EA9CCBD /* OpenCommanderCore */; };
@@ -36,6 +38,7 @@
 		9642933DE5C5517459C16100 /* DuplicatesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D057ECEF8DB825A65DCA85A /* DuplicatesSheet.swift */; };
 		965B556B09838F280CAD0C7B /* BreadcrumbBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B92202D83872B422198A799F /* BreadcrumbBar.swift */; };
 		9B8C0A63E30564680950190E /* MainToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 874D46E17F0DCE858F690006 /* MainToolbar.swift */; };
+		A0A61711910DBF23F5370F8F /* UISelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38C9B6AA0CAE47309E96825 /* UISelfTest.swift */; };
 		A5BD22AC809C0BDCD9167A25 /* ConnectionFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADC5AD272A2C6CF80CC80434 /* ConnectionFormSheet.swift */; };
 		A823373B5E5251C96FDB7C00 /* OpenCommanderRemote in Frameworks */ = {isa = PBXBuildFile; productRef = 9197EC6BD0ADC1DCD1194C66 /* OpenCommanderRemote */; };
 		AC6386D607DD9AFDE11533A3 /* PanelHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B7DEE7B1A61898C30670C7D /* PanelHeader.swift */; };
@@ -60,12 +63,14 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0412F6C2F7C7DBBC641ED554 /* FileListSetting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileListSetting.swift; sourceTree = "<group>"; };
 		082AA65E2D3DD8C314EE5B91 /* CredentialSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialSheet.swift; sourceTree = "<group>"; };
 		0C29BE5119EF8FFE67DDEE05 /* HostKeySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostKeySheet.swift; sourceTree = "<group>"; };
 		0C5A5D961B2860FC7B26D719 /* PanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelView.swift; sourceTree = "<group>"; };
 		0E034E7FBDC6BE53FC8C6C54 /* ConnectionsManagerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsManagerSheet.swift; sourceTree = "<group>"; };
 		0FE206B996DD25F60EA64560 /* ModifiedDateText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModifiedDateText.swift; sourceTree = "<group>"; };
 		11E3F14C5548DBA1CB4BE297 /* ShortcutsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsView.swift; sourceTree = "<group>"; };
+		1939832B1BACE53CFC3F3724 /* FastPanelTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastPanelTable.swift; sourceTree = "<group>"; };
 		19CD1B02BB66014896F36F67 /* TabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBar.swift; sourceTree = "<group>"; };
 		267BB1A6139CCA67FA33530C /* PanelErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelErrorBanner.swift; sourceTree = "<group>"; };
 		2CE470C2F4B0EF66851C945C /* CompareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareSheet.swift; sourceTree = "<group>"; };
@@ -103,6 +108,7 @@
 		B92202D83872B422198A799F /* BreadcrumbBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreadcrumbBar.swift; sourceTree = "<group>"; };
 		BF69DC222746114ED8D8D05C /* AppCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommands.swift; sourceTree = "<group>"; };
 		C1A598AC1575E84F18DF655E /* WeakBox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeakBox.swift; sourceTree = "<group>"; };
+		C38C9B6AA0CAE47309E96825 /* UISelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UISelfTest.swift; sourceTree = "<group>"; };
 		CC2B84456B16A62FD7D3FBA8 /* PanelEmptyOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelEmptyOverlay.swift; sourceTree = "<group>"; };
 		CD3D1AD3299D270CA67AEF37 /* RemoteDeleteRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDeleteRequest.swift; sourceTree = "<group>"; };
 		D3382CF7446666F73249761C /* NameSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameSheet.swift; sourceTree = "<group>"; };
@@ -153,6 +159,8 @@
 			children = (
 				B92202D83872B422198A799F /* BreadcrumbBar.swift */,
 				8488D666FB6BBFBA0245AA60 /* DraggedFiles.swift */,
+				1939832B1BACE53CFC3F3724 /* FastPanelTable.swift */,
+				0412F6C2F7C7DBBC641ED554 /* FileListSetting.swift */,
 				5D0849B53F5017B9F0D2BC4D /* IconCache.swift */,
 				0FE206B996DD25F60EA64560 /* ModifiedDateText.swift */,
 				470584BBF070BCC502429092 /* NameCell.swift */,
@@ -266,6 +274,7 @@
 				11E3F14C5548DBA1CB4BE297 /* ShortcutsView.swift */,
 				48C3A600C219F70CB8A6D583 /* TwoPaneLayout.swift */,
 				3AA93A7EB635370A4196C2C8 /* TwoPaneSplit.swift */,
+				C38C9B6AA0CAE47309E96825 /* UISelfTest.swift */,
 				C1A598AC1575E84F18DF655E /* WeakBox.swift */,
 			);
 			path = App;
@@ -389,6 +398,8 @@
 				20C84024E6E9B5E7B455851B /* CredentialSheet.swift in Sources */,
 				BC6D3655AFF3539E5753DB77 /* DraggedFiles.swift in Sources */,
 				9642933DE5C5517459C16100 /* DuplicatesSheet.swift in Sources */,
+				52604988EB5A5062B9A2BE55 /* FastPanelTable.swift in Sources */,
+				1D9B5F4DECFA764DFEAAEB17 /* FileListSetting.swift in Sources */,
 				C98EC0FD899C860BC981D1D6 /* HostKeySheet.swift in Sources */,
 				EE6D46F8B25748EA16BA2E8F /* IconCache.swift in Sources */,
 				4A7697AF4CA11E4B7E852075 /* InfoPanel.swift in Sources */,
@@ -417,6 +428,7 @@
 				EF0944B9FAE5379E55A1361B /* TrustedHostsSheet.swift in Sources */,
 				89C5BA13BDABFABFB29D3048 /* TwoPaneLayout.swift in Sources */,
 				829528D9B8EAFAF248FE35FC /* TwoPaneSplit.swift in Sources */,
+				A0A61711910DBF23F5370F8F /* UISelfTest.swift in Sources */,
 				71A3A1F4BBB088F5E34EA669 /* WeakBox.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -10,9 +10,19 @@ struct PanelView: View {
     var focus: FocusState<PanelSide?>.Binding
 
     @State private var showFilter = false
+    @AppStorage(FileListSetting.key) private var fastFileList = true
     @FocusState private var filterFocused: Bool
 
     private var isActive: Bool { state.active == panel.side }
+
+    /// Szybka lista (`NSTableView`) na macOS 15+, chyba że wyłączona w menu Widok; inaczej tabela SwiftUI.
+    @ViewBuilder private var fileList: some View {
+        if #available(macOS 15.0, *), fastFileList {
+            FastPanelTable(panel: panel, state: state, focus: focus)
+        } else {
+            PanelTable(panel: panel, state: state, focus: focus)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,7 +35,7 @@ struct PanelView: View {
                 PanelFilterBar(panel: panel, showFilter: $showFilter, isFieldFocused: $filterFocused, panelFocus: focus)
             }
             if let error = panel.loadError { PanelErrorBanner(error: error) { panel.reload() } }
-            PanelTable(panel: panel, state: state, focus: focus)
+            fileList
             PanelStatusBar(panel: panel)
         }
         .background(.background)

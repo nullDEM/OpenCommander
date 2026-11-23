@@ -51,6 +51,17 @@ Create a folder `~/OC-test` with subfolders `A` and `B`. Put a few files in `A` 
 - [ ] Light and dark themes look right.
 - [ ] **Pomoc → Skróty klawiszowe** (Help → Keyboard Shortcuts, ⇧⌘/) opens the list window; check that the listed shortcuts really work.
 
+## Stage 3 of optimisation: fast file list (NSTableView, macOS 15+)
+Covered automatically by the UI self-test (`OC_UI_SELFTEST=1`): Tab, arrows, Shift/⌘ selection, clicks, sorting binding, double-click, Return, filter, hiding panels, column menu, context-menu contents. Check by hand:
+- [ ] Drag files from one panel to the other (copy; with ⌥ — move), and from Finder into a panel; dragging out to Finder/other apps is not offered.
+- [ ] Clicking column headers sorts (first click ascending, second descending); folders stay on top.
+- [ ] Right-click on a row, on a row outside the selection and on empty space: the right menu; every action works (Open with, Quick Look, Copy path, Info, rename, Trash).
+- [ ] Space opens/closes Quick Look; ⌥C / ⌥V copy and paste files.
+- [ ] Column widths, order and visibility (right-click on the header) survive a restart, separately per panel.
+- [ ] Type-to-select (typing a name jumps to it); VoiceOver reads rows.
+- [ ] View → "Fast file list" off brings back the SwiftUI table; on — the fast list.
+- [ ] A 50 000-item folder: no freeze when entering, scrolling or selecting.
+
 ## Operations
 - [ ] New folder (including a name with `/`, empty, existing → a readable error, no change on disk).
 - [ ] Rename; change **only the letter case** (`raport.xlsx` → `Raport.xlsx`).

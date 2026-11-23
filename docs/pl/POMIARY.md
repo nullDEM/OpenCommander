@@ -143,3 +143,24 @@ Równoważność sprawdzają testy `ParallelEquivalenceTests` (wersje odniesieni
 | duplikaty dups (2,2 GB) | 608 ms | 566 ms | **126 ms** | 4,8× |
 
 Zastrzeżenia: pomiary na SSD z ciepłą pamięcią podręczną. Na dyskach talerzowych i udziałach sieciowych równoległe odczyty mogą dać mniejszy zysk (limit 6 wątków ogranicza ryzyko „szarpania” dysku); tego nie mierzono.
+
+---
+
+# Etap 3 — wyniki (lista plików na NSTableView)
+
+Nowa lista (`FastPanelTable`, macOS 15+, przełącznik Widok → „Szybka lista plików”, domyślnie włączona) tworzy widoki tylko dla widocznych wierszy; komórkę nazwy, menu kontekstowe (`NSHostingMenu`), Quick Look i komunikat pustego folderu bierze z dotychczasowego kodu SwiftUI. Na macOS 14 i po wyłączeniu przełącznika działa dotychczasowa tabela SwiftUI.
+
+Start aplikacji z oboma panelami w `flat_50k` (Release, profil Time Profiler, pojedynczy przebieg):
+
+| Kategoria (ms CPU) | Bazowo | Po etapie 1 | **Po etapie 3** |
+|---|---:|---:|---:|
+| tabela na wątku głównym | 2 093 | 1 190 | **21** |
+| graf SwiftUI na wątku głównym | 1 210 | 594 | **33** |
+| listowanie (w tle) | 7 776 | 552 | ~1 100* |
+| sortowanie (w tle) | 1 008 | 589 | 593 |
+
+\* rozrzut między przebiegami (benchmark Core: 0,7 s / 50k bez zmian).
+
+Autotest interfejsu (`OC_UI_SELFTEST=1`, 29 sprawdzeń) przechodzi w dwóch kolejnych przebiegach. Ręcznie do sprawdzenia: przeciąganie, Quick Look, akcje z menu kontekstowego, zapamiętywanie kolumn — lista w `MANUAL_TESTS.md`.
+
+Poprawki znalezione autotestem w trakcie pracy: aktywny panel przestawiany przez fokus nadany przy starcie; kliknięcia w komórkę nazwy przechwytywane przez SwiftUI (wiersz się nie zaznaczał); zapisane przez AppKit dodatkowe deskryptory sortowania.

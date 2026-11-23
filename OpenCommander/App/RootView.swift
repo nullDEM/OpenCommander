@@ -28,7 +28,12 @@ struct RootView: View {
         .toolbar { MainToolbar(state: state) }
         .onChange(of: focus) { _, new in if let new { state.active = new } }
         .onChange(of: state.active) { _, new in focus = new; state.persist() }
-        .onAppear { focus = state.active }
+        .onAppear {
+            focus = state.active
+            #if DEBUG
+            if #available(macOS 15.0, *) { UISelfTest.startIfRequested(state) }
+            #endif
+        }
         .sheet(item: $state.sheet) { sheet in
             switch sheet {
             case .newFolder:
